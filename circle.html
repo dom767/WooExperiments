@@ -1,0 +1,217 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+
+var gBuffer = new Array();
+var gHeight = 800;
+var gWidth = 800;
+var gNumLines = 10;
+var gDotDensity = 1;
+var gDotWeight = 32;
+var gLinesInCircle = 720;
+var gCirclePosition = 0.0;
+var gInitialMultiplier = 2.0;
+var gMultiplier = 2;
+var gStop = false;
+var gAnimateParameters = true;
+
+function clamp(value, min, max)
+{
+ if (value<=min) return min;
+ if (value>=max) return max;
+ return value;
+}
+
+function vector(x, y)
+{
+ this.mX = x;
+ this.mY = y;
+}
+
+vector.prototype.sub = function()
+{
+ arg = arguments[0];
+ return new vector(this.mX-arg.mX, this.mY-arg.mY);
+}
+
+vector.prototype.div = function()
+{
+ arg = arguments[0];
+ return new vector(this.mX/arg, this.mY/arg);
+}
+
+vector.prototype.add = function()
+{
+ arg = arguments[0];
+ return new vector(this.mX+arg.mX, this.mY+arg.mY);
+}
+
+vector.prototype.length = function()
+{
+ return Math.sqrt(this.mX*this.mX + this.mY*this.mY);
+}
+
+function Initialise()
+{
+ InitialiseBuffers();
+ Tick();
+ guiReadParameters();
+}
+
+function InitialiseBuffers()
+{
+ for (y=0; y<gHeight; y++)
+  for (x=0; x<gWidth; x++)
+   {
+    gBuffer[x+gWidth*y]=0.0;
+   }
+}
+
+function drawLine(start, end)
+{
+ var diff = end.sub(start);
+ var dist = diff.length();
+ var index = start;
+ if (dist==0) return;
+ var increment = end.sub(start);
+ increment = increment.div(dist*gDotDensity);
+ for (var i=0; i<=dist*gDotDensity; i++)
+ {
+  ix = Math.trunc(index.mX);
+  remx = index.mX - ix;
+  iy = Math.trunc(index.mY);
+  remy = index.mY - iy;
+  gBuffer[ix + iy*gWidth] += gDotWeight * (1.0-remy) * (1.0-remx);
+  gBuffer[ix + 1 + iy*gWidth] += gDotWeight * (1.0-remy) * remx;
+  gBuffer[ix + (1+iy)*gWidth] += gDotWeight * remy * (1.0-remx);
+  gBuffer[ix + 1 + (1+iy)*gWidth] += gDotWeight * remy * remx;;
+  index = index.add(increment);
+ }
+}
+
+function Tick()
+{
+ var totalLines = gNumLines;
+ if (gAnimateParameters) totalLines = gLinesInCircle;
+ for (var i=0; i<totalLines; i++)
+ {
+  theta1 = 2 * Math.PI * gCirclePosition / 360;
+  theta2 = 2 * Math.PI * ((gCirclePosition*gMultiplier)%360) / 360;
+  startPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta1), gHeight/2-gWidth*0.45*Math.sin(theta1));
+  endPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta2), gHeight/2-gWidth*0.45*Math.sin(theta2))
+  gCirclePosition += (360 / gLinesInCircle);
+  drawLine(startPos, endPos);
+ }
+
+ var canvas = document.getElementById('canvas1');
+ 
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,gHeight,gWidth,200);
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+  
+  for (y=0; y<gHeight; y++)
+  {
+   for (x=0; x<gWidth; x++)
+   {
+    imageData.data[4*(x+y*gWidth)] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
+    imageData.data[4*(x+y*gWidth)+1] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
+    imageData.data[4*(x+y*gWidth)+2] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+   }
+  }
+ }
+ 
+ ctx.putImageData(imageData,0,0);
+ 
+ if (gAnimateParameters)
+ {
+  gMultiplier += 0.02;
+  gCirclePosition = 0;
+  InitialiseBuffers();
+ }
+
+ var currentParameterInput = document.getElementById('currentParameter');
+ currentParameterInput.value = gMultiplier;
+
+ if (!gStop)
+  setTimeout(Tick, 17);
+}
+
+function guiStart()
+{
+ gStop = false;
+ Tick();
+}
+
+function guiStop()
+{
+ gStop = true;
+}
+
+function guiReset()
+{
+ gCirclePosition = 0;
+ gMultiplier = gInitialMultiplier;
+ InitialiseBuffers();
+}
+
+function guiReadParameters()
+{
+ var guiAnimateParameters = document.getElementById('animateParamters');
+ gAnimateParameters = guiAnimateParameters.checked;
+ var guiStartParameter = document.getElementById('startParameter');
+ gInitialMultiplier = parseFloat(guiStartParameter.value);
+ var guiLinesInCircle = document.getElementById('linesInCircle');
+ gLinesInCircle = parseFloat(guiLinesInCircle.value);
+ var guiLinesPerFrame = document.getElementById('linesPerFrame');
+ gNumLines = parseFloat(guiLinesPerFrame.value);
+ var guiDotDensity = document.getElementById('dotDensity');
+ gDotDensity = parseFloat(guiDotDensity.value);
+ var guiDotWeight = document.getElementById('dotWeight');
+ gDotWeight = parseFloat(guiDotWeight.value);
+}
+
+
+</SCRIPT>
+</HEAD>
+<BODY onload="Initialise();">
+
+<DIV style="float: left;">
+<CANVAS id="canvas1" width="800" height="800" style="border:1px solid #000000;"></CANVAS>
+</DIV>
+
+<DIV style="float: left;">
+<DIV style="border:1px;width:200px;float: left;" ><B>Simulation Controls</B></DIV>
+<BR>
+<BUTTON onclick="guiStart()" style="width:200px">Start Animation</button>
+<BR>
+<BUTTON onclick="guiStop()" style="width:200px">Stop Animation</button>
+<BR>
+<BUTTON onclick="guiReset()" style="width:200px">Reset</button>
+<BR>
+<DIV style="border:1px;width:200px;float: left;" ><INPUT id="animateParamters" checked="true" type="checkbox" onchange="guiReadParameters()">Animate Parameters</INPUT></DIV>
+<BR>
+<BR>
+<DIV style="border:1px;width:200px;float: left;" ><B>Value Controls</B></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Start Parameter</DIV><INPUT id="startParameter" value=2.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Lines in Circle</DIV><INPUT id="linesInCircle" value=720.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Lines per frame</DIV><INPUT id="linesPerFrame" value=10.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Dot Density</DIV><INPUT id="dotDensity" value=1.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Dot Weight</DIV><INPUT id="dotWeight" value=32.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<BR>
+
+<DIV style="border:1px;width:200px;float: left;" ><B>Current Values</B></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Current Parameter</DIV><INPUT id="currentParameter" style="width:60px" style="text-align:right;"/></input>
+<BR>
+
+</BODY>
+</HTML>

@@ -1,0 +1,849 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+
+var stop=false;
+var width=1280;
+var height=520;
+var plants = new Array();
+var numPlants = 0;
+var animals = new Array();
+var numAnimals = 0;
+
+var initialAnimals=100;
+var initialPlants=400;
+var probSpawn = 0.0026;
+var randomSpawn = 0;
+var foodProximity=4;
+var seedPhase = 0.5;
+var foodValue = 0.5;
+var hungerLevel = 1.0;
+var fullLevel = 2.0;
+var energyUse = 1.0;
+
+var runs = new Array();
+var numRuns = 0;
+var statsFrequency=30;
+var statsMode = 0;
+var statsUpdateEnabled = true;
+var statsCounter = 0;
+var globalStats = new runStats();
+var autostop = 100;
+var autostopEnabled = false;
+
+var ageRate = 2;
+var ageMultiplier = 0.001
+var ageSV = 0.0001;
+var tickRate=16;
+var mutationRate=0.0;
+var animalColourMutationRate=0.1;
+var plantColourMutationRate=0.0005;
+
+function stat(plants, animals, speed, turnSpeed, ageRate, animalColour, plantColour)
+{
+this.mPlants=plants;
+this.mAnimals=animals;
+this.mSpeed=speed;
+this.mTurnSpeed=turnSpeed;
+this.mAgeRate=ageRate;
+this.mAnimalColour = animalColour;
+this.mPlantColour = plantColour;
+}
+
+function runStats()
+{
+ this.mStats = new Array(600);
+ this.mNumStats = 0;
+ this.mTotalStats = 600;
+ this.mMaxAnimals = 0;
+ this.mMaxPlants = 0;
+}
+
+runStats.prototype.reset = function() {
+ this.mStats = new Array(600);
+ this.mNumStats = 0;
+ this.mTotalStats = 600;
+ this.mMaxAnimals = 0;
+ this.mMaxPlants = 0;
+}
+
+runStats.prototype.addStats = function() {
+ newStat = arguments[0];
+
+ this.mStats[this.mNumStats++] = newStat;
+ if (newStat.mPlants>this.mMaxPlants) this.mMaxPlants = newStat.mPlants;
+ if (newStat.mAnimals>this.mMaxAnimals) this.mMaxAnimals = newStat.mAnimals;
+
+ if (this.mNumStats==this.mTotalStats)
+ {
+  var newStats = new Array(this.mTotalStats*2);
+  for (i=0; i<this.mTotalStats; i++)
+  {
+   newStats[i]=this.mStats[i];
+  }
+  this.mStats = newStats;
+  this.mTotalStats = this.mTotalStats*2;
+ }
+}
+
+function UpdateGlobalStats(statsIndex)
+{
+ // update globalStats
+ if (statsIndex>globalStats.mNumStats)
+ {
+  globalStats.addStats(runs[numRuns-1].mStats[statsIndex]);
+ }
+ else
+ {
+  // update existing
+  var plantSum=0, animalSum=0, speedSum=0, turnSpeedSum=0, ageRateSum=0;
+  var animalColourSum = new Array(32);
+  var plantColourSum = new Array(32);
+  var activeRuns=0;
+  
+//  globalStats.reset();
+  
+  for (i=0; i<numRuns; i++)
+  {
+   if (globalStats.mMaxAnimals<runs[i].mMaxAnimals)
+    globalStats.mMaxAnimals = runs[i].mMaxAnimals;
+   if (globalStats.mMaxPlants<runs[i].mMaxPlants)
+    globalStats.mMaxPlants = runs[i].mMaxPlants;
+   if (runs[i].mNumStats>=statsIndex)
+   {
+    activeRuns++;
+    plantSum += runs[i].mStats[statsIndex].mPlants;
+    animalSum += runs[i].mStats[statsIndex].mAnimals;
+    speedSum += runs[i].mStats[statsIndex].mSpeed;
+    turnSpeedSum += runs[i].mStats[statsIndex].mTurnSpeed;
+    ageRateSum += runs[i].mStats[statsIndex].mAgeRate;
+for (c=0; c<32; c++)
+{
+animalColourSum[c] += runs[i].mStats[statsIndex].mAnimalColour[c];
+plantColourSum[c] += runs[i].mStats[statsIndex].mPlantColour[c];
+}
+   }
+  }
+  
+  
+  plantSum /= activeRuns;
+  animalSum /= activeRuns;
+  speedSum /= activeRuns;
+  turnSpeedSum /= activeRuns;
+  ageRateSum /= activeRuns;
+  for (c=0; c<32; c++)
+  {
+   animalColourSum[c] /= activeRuns;
+   plantColourSum[c] /= activeRuns;
+  }
+  
+  globalStats.mStats[statsIndex] = new stat(plantSum, animalSum, speedSum, turnSpeedSum, ageRateSum, animalColourSum, plantColourSum);
+
+ }
+}
+
+function plant(x, y, h, ageRate)
+{
+this.mX = x;
+this.mY = y;
+this.mAge = 0.0;
+this.mH = h;
+this.mAgeRate = ageRate;
+}
+
+// https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+function hslToRgb(h, s, l){
+    var r, g, b;
+
+    if(s == 0){
+        r = g = b = l; // achromatic
+    }else{
+        var hue2rgb = function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function clamp(value, min, max)
+{
+ if (value<=min) return min;
+ if (value>=max) return max;
+ return value;
+}
+
+function animal(x, y, vx, vy, h, ageRate, speed, turnSpeed)
+{
+ this.mX = x;
+ this.mY = y;
+ this.vX = vx;
+ this.vY = vy;
+ this.mH = h;
+ this.mAge = 0.0;
+ this.mAgeRate = ageRate;
+ this.mFood = 1.5;
+ this.mSpeed = speed;
+ this.mTurnSpeed = turnSpeed;
+ this.mHungry = Math.random()<0.5 ? true : false;
+ this.mTargetX = clamp(x+(Math.random()-0.5)*100, 0, width);
+ this.mTargetY = clamp(y+(Math.random()-0.5)*100, 0, height);
+}
+
+function spawnPlant()
+{
+ plants[numPlants] = new plant(Math.random()*width, Math.random()*height, Math.random(), ageRate + (Math.random()*2-1)*ageSV);
+ plants[numPlants++].mAge = Math.random()*0.8;
+}
+
+function spawnAnimal()
+{
+ animals[numAnimals++] = new animal(Math.random()*width, Math.random()*height, Math.random()-0.5, Math.random()-0.5, Math.random(), ageRate + (Math.random()*2-1)*ageSV, 1, 1);
+}
+
+function Initialise()
+{
+ numPlants=0;
+ numAnimals=0;
+ maxPlants=0;
+ maxAnimals=0;
+ statsCounter=0;
+ runs[numRuns++] = new runStats();
+ tickIndex=0;
+
+ for (i=0; i<initialPlants; i++)
+  spawnPlant();
+  
+ for (i=0; i<initialAnimals; i++)
+  spawnAnimal(); 
+
+ guiSetInitialParams();
+ guiSetRate();
+
+ if (stop)
+  Tick();
+ stop = false;
+ stopstart.innerHTML = "Stop Simulation";
+}
+
+function TickPlants()
+{
+ // plant ticks
+ for (i=0; i<numPlants; i++)
+ {
+  plants[i].mAge += ageMultiplier * plants[i].mAgeRate;
+  if (Math.random()>(1-probSpawn))
+  {
+   newX = plants[i].mX+60*(Math.random()-0.5);
+   newY = plants[i].mY+60*(Math.random()-0.5);
+   if (newX>width) newX=width;
+   if (newY>height) newY=height;
+   if (newX<0) newX=0;
+   if (newY<0) newY=0;
+   
+   //proximity check
+   var prox = 10000;
+   for (j=0; j<numPlants; j++)
+   {
+    if (i!=j)
+    {
+     dx = plants[j].mX-newX;
+     dy = plants[j].mY-newY;
+     dist = dx*dx+dy*dy;
+     if (dist<prox) prox=dist;
+    }
+   }
+
+   h = plants[i].mH + plantColourMutationRate*(Math.random()-0.5);
+   if (h > 1.0)
+    h -= 1.0;
+   if (h < 0.0)
+    h += 1.0;
+
+   if (prox>foodProximity*foodProximity)
+    plants[numPlants++] = new plant(newX, newY, h, ageRate + (Math.random()*2-1)*ageSV);
+  }
+ }
+ 
+ if (Math.random()<randomSpawn)
+ {
+  plants[numPlants++] = new plant(Math.random()*width, Math.random()*height, Math.random(), ageRate/* + (Math.random()*2-1)*ageSV*/);
+ }
+
+ // plant death sweep
+ for (i=0; i<numPlants; i++)
+ {
+  if (plants[i].mAge>1.0)
+  {
+   plants[i] = plants[numPlants-1];
+   numPlants--;
+  }
+ }
+}
+
+function getColourDistance(h1, h2)
+{
+ var ret = h1 - h2;
+ if (ret<0) ret=-ret;
+ if (ret>0.5) ret=1.0-ret;
+ return ret;
+}
+
+function TickAnimals()
+{
+ // animal ticks
+ for (i=0; i<numAnimals; i++)
+ {
+  animals[i].mAge += ageMultiplier * animals[i].mAgeRate;
+  
+  var distToTargetX = animals[i].mTargetX - animals[i].mX;
+  var distToTargetY = animals[i].mTargetY - animals[i].mY;
+  var distToTarget = distToTargetX*distToTargetX + distToTargetY*distToTargetY;
+
+  animals[i].mFood -= (animals[i].mHungry ? 0.006 : 0.003)*energyUse*(0.9+0.1*(animals[i].mSpeed*animals[i].mTurnSpeed));
+
+  if (distToTarget<25)
+  {
+   if (animals[i].mHungry)
+   {
+    minDistance = 1111111111;
+    minColourDistance = 1111111111;
+    minIndex = -1;
+    eatIndex = -1;
+  
+    // find closest
+    for (j=0; j<numPlants; j++)
+    {
+     if (plants[j].mAge>seedPhase)
+     {
+      dx = plants[j].mX-animals[i].mX;
+      dy = plants[j].mY-animals[i].mY;
+      dist = dx*dx + dy*dy;
+      
+      if (dist<9)
+      {
+       // eat
+       eatIndex = j;
+      }
+      else
+      {
+       colourdist = 0.01+(2*getColourDistance(plants[j].mH, animals[i].mH));
+       colourdist *= dist;
+       if (colourdist<minColourDistance)
+       {
+        minColourDistance = colourdist;
+        minDistance = dist;
+        minIndex = j;
+       }
+      }
+     }
+    }
+
+    if (minIndex>-1)
+    {
+     animals[i].mTargetX = plants[minIndex].mX;
+     animals[i].mTargetY = plants[minIndex].mY;
+    }
+
+    if (eatIndex>-1)
+    {
+     plants[eatIndex] = plants[numPlants-1];
+     numPlants--;
+     var colourdist = getColourDistance(plants[eatIndex].mH, animals[i].mH);
+     animals[i].mFood += foodValue * (1.2-(2*colourdist))
+    }
+
+    if (animals[i].mFood > fullLevel)
+	{
+     animals[i].mHungry = false;
+h = animals[i].mH + animalColourMutationRate*(Math.random()-0.5);
+   if (h > 1.0)
+    h -= 1.0;
+   if (h < 0.0)
+    h += 1.0;
+   var newSpeed = animals[i].mSpeed * (1+mutationRate*(Math.pow(Math.random(),5)*2-1));
+   var newTurnSpeed = animals[i].mTurnSpeed * (1+mutationRate*(Math.pow(Math.random(),5)*2-1));
+   animals[numAnimals++] = new animal(animals[i].mX, animals[i].mY, -animals[i].vX, -animals[i].vY, h, ageRate + (Math.random()*2-1)*ageSV, newSpeed, newTurnSpeed);
+	}
+   }
+   else // not hungry
+   {
+    animals[i].mTargetX = clamp(animals[i].mX + 100*(Math.random()-0.5), 0, width);
+    animals[i].mTargetY = clamp(animals[i].mY + 100*(Math.random()-0.5), 0, height);
+
+    if (animals[i].mFood < hungerLevel)
+     animals[i].mHungry = true;
+   }
+  }
+  
+  dx = animals[i].mTargetX - animals[i].mX;
+  dy = animals[i].mTargetY - animals[i].mY;
+  dist = Math.sqrt(dx*dx + dy*dy);
+  closeness = 10/dist;
+  
+  var hungerModifier = animals[i].mHungry ? 0.8 : 0.4;
+
+  animals[i].vX += 3 * hungerModifier * animals[i].mTurnSpeed * (0.02*closeness+0.04)*dx/dist;
+  animals[i].vY += 3 * hungerModifier * animals[i].mTurnSpeed * (0.02*closeness+0.04)*dy/dist;
+
+  vdist = Math.sqrt(animals[i].vX*animals[i].vX + animals[i].vY*animals[i].vY);
+  animals[i].vX/=vdist;
+  animals[i].vY/=vdist;
+  
+  var speed = animals[i].mSpeed * hungerModifier;
+  animals[i].mX += animals[i].vX*speed;
+  animals[i].mY += animals[i].vY*speed;
+  
+  if (animals[i].mX>width) animals[i].mX=width;
+  if (animals[i].mY>height) animals[i].mY=height;
+  if (animals[i].mX<0) animals[i].mX=0;
+  if (animals[i].mY<0) animals[i].mY=0;
+/*  
+  if (animals[i].mFood>fullLevel)
+  {
+      animals[i].mFood--;
+  }*/
+ }
+ 
+ // animal death sweep
+ for (i=0; i<numAnimals; i++)
+ {
+  if (animals[i].mFood<0.0)
+  {
+   animals[i] = animals[numAnimals-1];
+   numAnimals--;
+  }
+ }
+}
+
+function DrawEnvironment()
+{
+ var canvas = document.getElementById('canvas1');
+  if (canvas.getContext)
+  {
+    var ctx = canvas.getContext('2d');
+ctx.clearRect(0,0,width,height);
+
+    ctx.fillStyle = 'rgb(0,0,0)'
+    for (i=0; i<numPlants; i++)
+{
+rgb = hslToRgb(plants[i].mH, 0.5, 0.5);
+ctx.fillStyle = 'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')'
+if (plants[i].mAge>seedPhase)
+ ctx.fillRect(plants[i].mX-1, plants[i].mY-1, 2, 2);	 
+else
+ ctx.fillRect(plants[i].mX-1, plants[i].mY-0.5, 1, 1);	 
+}
+
+    for (i=0; i<numAnimals; i++)
+    {
+    rgb = hslToRgb(animals[i].mH, 0.5, 0.5);
+    if (animals[i].mHungry)
+     ctx.fillStyle = 'rgb(255,0,0)';
+    else	 
+     ctx.fillStyle = 'rgb(0,255,0)';
+
+	//	ctx.fillStyle = 'rgba('+r+','+g+','+b+',0.1)'
+    ctx.strokeStyle = 'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')'
+    ctx.beginPath();
+    ctx.moveTo(animals[i].mX+animals[i].vX*3, animals[i].mY+animals[i].vY*3);
+    ctx.lineTo(animals[i].mX+(animals[i].vY-animals[i].vX)*3, animals[i].mY+(-animals[i].vX-animals[i].vY)*3);
+    ctx.lineTo(animals[i].mX+(-animals[i].vY-animals[i].vX)*3, animals[i].mY+(animals[i].vX-animals[i].vY)*3);
+    ctx.lineTo(animals[i].mX+animals[i].vX*3, animals[i].mY+animals[i].vY*3);
+    //ctx.fill();
+	ctx.stroke();
+	
+/*	ctx.strokeStyle = 'rgb(0,0,0)'
+	ctx.arc(animals[i].mTargetX, animals[i].mTargetY, 5, 0, 2*Math.PI);
+	ctx.stroke();
+*/
+}
+  }
+}
+
+function DrawStatsColourMap()
+{
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,height,width,200);
+  
+  var totalSteps = runs[numRuns-1].mNumStats<width ? runs[numRuns-1].mNumStats : width;
+  var step = runs[numRuns-1].mNumStats<width ? 1 : runs[numRuns-1].mNumStats/width;
+  var stepIdx = 0;
+  
+  for (i=0; i<totalSteps; i++)
+  {
+   var statIdx = Math.floor(stepIdx);
+   stepIdx += step;
+   var vpos=0;
+   for (c=0; c<32; c++)
+   {
+    oldv = Math.floor(100*vpos);
+vpos += runs[numRuns-1].mStats[statIdx].mAnimalColour[c]/runs[numRuns-1].mMaxAnimals;
+if (Math.floor(100*vpos) != oldv)
+{
+     rgb = hslToRgb(c/32, 0.5, 0.5);
+     ctx.strokeStyle = 'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')'
+ctx.beginPath();
+ctx.moveTo(i, height+200-(oldv));
+ctx.lineTo(i, height+200-(Math.floor(100*vpos)));
+ctx.stroke();
+}
+   }
+   var vpos=0;
+   for (c=0; c<32; c++)
+   {
+    oldv = Math.floor(100*vpos);
+vpos += runs[numRuns-1].mStats[statIdx].mPlantColour[c]/runs[numRuns-1].mMaxPlants;
+if (Math.floor(100*vpos) != oldv)
+{
+     rgb = hslToRgb(c/32, 0.5, 0.5);
+     ctx.strokeStyle = 'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')'
+ctx.beginPath();
+ctx.moveTo(i, height+100-(oldv));
+ctx.lineTo(i, height+100-(Math.floor(100*vpos)));
+ctx.stroke();
+}
+   }
+  }
+ }
+}
+
+function DrawStatsLineMode()
+{
+ var canvas = document.getElementById('canvas1');
+ 
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,height,width,200);
+  
+  var totalSteps = globalStats.mNumStats<width ? globalStats.mNumStats : width;
+  var step = globalStats.mNumStats<width ? 1 : globalStats.mNumStats/width;
+  var stepIdx = 0;
+
+  for (i=0; i<totalSteps-1; i++)
+  {
+   var statIdx = Math.floor(stepIdx);
+   var statIdx2 = Math.floor(stepIdx+step)
+   stepIdx += step;
+   
+   for (r=0; r<numRuns; r++)
+   {
+    if (statIdx2 < runs[r].mNumStats)
+{
+     ctx.strokeStyle = 'rgb(255,200,200)'
+     ctx.beginPath();
+     ctx.moveTo(i, 200+height-(200*runs[r].mStats[statIdx].mAnimals/globalStats.mMaxAnimals));
+     ctx.lineTo(i+1, 200+height-(200*runs[r].mStats[statIdx2].mAnimals/globalStats.mMaxAnimals));
+     ctx.stroke();
+
+     ctx.strokeStyle = 'rgb(200,255,200)'
+     ctx.beginPath();
+     ctx.moveTo(i, 200+height-(200*runs[r].mStats[statIdx].mPlants/globalStats.mMaxPlants));
+     ctx.lineTo(i+1, 200+height-(200*runs[r].mStats[statIdx2].mPlants/globalStats.mMaxPlants));
+     ctx.stroke();
+/*
+   ctx.strokeStyle = 'rgb(0,127,0)'
+   ctx.beginPath();
+   ctx.moveTo(i, 200+height-(200*stats[statIdx].mSpeed/2));
+   ctx.lineTo(i+1, 200+height-(200*stats[statIdx2].mSpeed/2));
+   ctx.stroke();
+
+   ctx.strokeStyle = 'rgb(0,0,128)'
+   ctx.beginPath();
+   ctx.moveTo(i, 200+height-(200*stats[statIdx].mTurnSpeed/2));
+   ctx.lineTo(i+1, 200+height-(200*stats[statIdx2].mTurnSpeed/2));
+   ctx.stroke();
+
+   ctx.strokeStyle = 'rgb(128,0,0)'
+   ctx.beginPath();
+   ctx.moveTo(i, 200+height-(200*stats[statIdx].mAgeRate/2));
+   ctx.lineTo(i+1, 200+height-(200*stats[statIdx2].mAgeRate/2));
+   ctx.stroke();*/
+    }
+   }
+   ctx.strokeStyle = 'rgb(200,0,0)'
+   ctx.beginPath();
+   ctx.moveTo(i, 200+height-(200*globalStats.mStats[statIdx].mAnimals/globalStats.mMaxAnimals));
+   ctx.lineTo(i+1, 200+height-(200*globalStats.mStats[statIdx2].mAnimals/globalStats.mMaxAnimals));
+   ctx.stroke();
+
+   ctx.strokeStyle = 'rgb(0,200,0)'
+   ctx.beginPath();
+   ctx.moveTo(i, 200+height-(200*globalStats.mStats[statIdx].mPlants/globalStats.mMaxPlants));
+   ctx.lineTo(i+1, 200+height-(200*globalStats.mStats[statIdx2].mPlants/globalStats.mMaxPlants));
+   ctx.stroke();
+  }
+ }
+}
+
+function DrawStats()
+{
+ var iteration = document.getElementById('iteration');
+ iteration.value = tickIndex;
+ var numPlantsInput = document.getElementById('numPlantsInput');
+ numPlantsInput.value = numPlants;
+ var numAnimalsInput = document.getElementById('numAnimalsInput');
+ numAnimalsInput.value = numAnimals;
+ var numRunsInput = document.getElementById('numRunsInput');
+ numRunsInput.value = numRuns;
+
+ if (statsMode==0 && statsUpdateEnabled)
+  DrawStatsColourMap();
+ if (statsMode==1 && statsUpdateEnabled)
+  DrawStatsLineMode();
+
+}
+
+function guiStopSimulation()
+{
+ var stopStart = document.getElementById('stopstart');
+
+ if (!stop)
+ {
+  stop = true;
+  stopstart.innerHTML = "Start Simulation";
+ }
+ else
+ {
+  stop = false;
+  stopstart.innerHTML = "Stop Simulation";
+  Tick();
+ }
+}
+
+function guiLowerRate()
+{
+ tickRate *= 0.5;
+ if (tickRate>512)
+  tickRate = 1;
+ guiSetRate();
+}
+
+function guiRaiseRate()
+{
+ tickRate *= 2;
+ if (tickRate>512)
+  tickRate = 1;
+ guiSetRate();
+}
+
+function guiSetRate()
+{
+ var rateButton = document.getElementById('rate');
+ rateButton.value = "Rate : "+tickRate+"x";
+}
+
+function guiReset()
+{
+ numRuns = 0;
+ globalStats = new runStats();
+ guiNextrun();
+}
+
+function guiNextrun()
+{
+ Initialise();
+}
+
+function guiSetInitialParams()
+{
+ var guiInitialAnimals = document.getElementById('initialAnimals');
+ guiInitialAnimals.value = initialAnimals;
+ var guiInitialPlants = document.getElementById('initialPlants');
+ guiInitialPlants.value = initialPlants;
+ var guiAutostop = document.getElementById('autostop');
+ guiAutostop.value = autostop;
+ var guiStatsFrequency = document.getElementById('statsFrequency');
+ guiStatsFrequency.value = statsFrequency;
+ var guiProbSpawn = document.getElementById('probSpawn');
+ guiProbSpawn.value = probSpawn;
+ var guiRandomSpawn = document.getElementById('randomSpawn');
+ guiRandomSpawn.value = randomSpawn;
+ var guiFoodProximity = document.getElementById('foodProximity');
+ guiFoodProximity.value = foodProximity;
+ var guiSeedPhase = document.getElementById('seedPhase');
+ guiSeedPhase.value = seedPhase;
+ var guiFoodValue = document.getElementById('foodValue');
+ guiFoodValue.value = foodValue;
+ var guiEnergyUse = document.getElementById('energyUse');
+ guiEnergyUse.value = energyUse;
+}
+
+function guiReadParameters()
+{
+ var guiInitialAnimals = document.getElementById('initialAnimals');
+ initialAnimals = guiInitialAnimals.value;
+ var guiInitialPlants = document.getElementById('initialPlants');
+ initialPlants = guiInitialPlants.value;
+ var guiAutostopEnabled = document.getElementById('autostopEnabled');
+ autostopEnabled = guiAutostopEnabled.checked;
+ var guiAutostop = document.getElementById('autostop');
+ autostop = guiAutostop.value;
+ var guiStatsFrequency = document.getElementById('statsFrequency');
+ statsFrequency = guiStatsFrequency.value;
+ var guiStatsUpdateEnabled = document.getElementById('statsUpdateEnabled');
+ statsUpdateEnabled = guiStatsUpdateEnabled.checked;
+ var guiProbSpawn = document.getElementById('probSpawn');
+ probSpawn = guiProbSpawn.value;
+ var guiRandomSpawn = document.getElementById('randomSpawn');
+ randomSpawn = guiRandomSpawn.value;
+ var guiFoodProximity = document.getElementById('foodProximity');
+ foodProximity = guiFoodProximity.value;
+ var guiSeedPhase = document.getElementById('seedPhase');
+ seedPhase = guiSeedPhase.value;
+ var guiFoodValue = document.getElementById('foodValue');
+ foodValue = guiFoodValue.value;
+ var guiEnergyUse = document.getElementById('energyUse');
+ energyUse = guiEnergyUse.value;
+}
+
+function guiStatsUpdate()
+{
+ if (statsMode==0)
+  DrawStatsColourMap();
+ if (statsMode==1)
+  DrawStatsLineMode();
+}
+
+function Tick()
+{
+
+ for (tick=0; tick<tickRate; tick++)
+ {
+  tickIndex++;
+
+  if (autostopEnabled && autostop==tickIndex)
+  {
+   guiNextrun();
+  }
+  else
+  {
+   if (statsCounter==0)
+   {
+    var speed=0, turnSpeed=0, ageRate=0;
+    var animalColour = new Array(32);
+    var plantColour = new Array(32);
+    for (c=0; c<32; c++)
+    {
+     animalColour[c]=0;
+     plantColour[c]=0;
+    }
+    for (i=0; i<numAnimals; i++)
+    {
+     speed += animals[i].mSpeed;
+     turnSpeed += animals[i].mTurnSpeed;
+     ageRate += animals[i].mAgeRate;
+     animalColour[Math.floor(animals[i].mH*31.999)]++;
+    }
+    for (i=0; i<numPlants; i++)
+    {
+     plantColour[Math.floor(plants[i].mH*31.999)]++;
+    }
+ 
+    speed /= numAnimals;
+    turnSpeed /= numAnimals;
+    ageRate /= numAnimals;
+
+    runs[numRuns-1].addStats(new stat(numPlants, numAnimals, speed, turnSpeed, ageRate, animalColour, plantColour));
+  
+    UpdateGlobalStats(runs[numRuns-1].mNumStats-1);
+   }
+
+   statsCounter++;
+   if (statsCounter>=statsFrequency) statsCounter=0;
+
+   TickPlants();
+   TickAnimals();
+  }
+ }
+
+ DrawEnvironment(); 
+ DrawStats();
+
+ // next tick
+ if (!stop)
+  setTimeout(Tick, 17);
+}
+
+</SCRIPT>
+
+</HEAD>
+<BODY>
+
+<DIV style="float: left;">
+<CANVAS id="canvas1" width="1280" height="720" style="border:1px solid #000000;"></canvas>
+</DIV>
+<DIV style="float: left;">
+<DIV style="border:1px;width:200px;float: left;" ><B>Simulation Controls</B></DIV>
+<BR>
+<BUTTON id="reset" onclick="guiReset()" style="width:200px">Reset Simulation</button>
+<BR>
+<BUTTON id="reset" onclick="guiNextrun()" style="width:200px">Next Run</button>
+<BR>
+<BUTTON id="stopstart" onclick="guiStopSimulation()" style="width:200px">Stop Simulation</button>
+<BR>
+<BUTTON id="lowerRate" onclick="guiLowerRate()" style="width:30px"><</button><INPUT id="rate" style="width:140px" style="text-align:right;"/></input><BUTTON id="raiseRate" onclick="guiRaiseRate()" style="width:30px">></button>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" ><INPUT id="autostopEnabled" type="checkbox" onchange="guiReadParameters()">Autostop</INPUT></DIV><INPUT id="autostop" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<BR>
+
+<DIV style="border:1px;width:200px;float: left;" ><B>Parameters</B></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Initial Animals</DIV><INPUT id="initialAnimals" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Initial Plants</DIV><INPUT id="initialPlants" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Plant Reproduction</DIV><INPUT id="probSpawn" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Random Plant Spawn</DIV><INPUT id="randomSpawn" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Food Crowding</DIV><INPUT id="foodProximity" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Seed Phase</DIV><INPUT id="seedPhase" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Food Value</DIV><INPUT id="foodValue" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Energy Use</DIV><INPUT id="energyUse" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<BR>
+
+<DIV style="border:1px;width:200px;float: left;" ><B>Stats</B></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Frequency (ticks)</DIV><INPUT id="statsFrequency" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Iteration</DIV><INPUT id="iteration" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;text-align:middle;" >Num plants</DIV><INPUT id="numPlantsInput" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Num Animals</DIV><INPUT id="numAnimalsInput" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Num Runs</DIV><INPUT id="numRunsInput" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<DIV style="border:1px;width:200px;float: left;" ><INPUT id="statsUpdateEnabled" checked="true" type="checkbox" onchange="guiReadParameters()">Update Stats GUI</INPUT></DIV>
+<BR>
+<BUTTON id="reset" onclick="guiStatsUpdate()" style="width:200px">Update Stats</button>
+<BR>
+</DIV>
+
+<script>
+setTimeout(Initialise(),1);
+setTimeout(Tick(),100);
+</script>
+</BODY>
+</HTML>
