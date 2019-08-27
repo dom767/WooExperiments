@@ -178,7 +178,11 @@ function RenderBuffer()
 function Tick()
 {
  var totalLines = gNumLines;
- if (gAnimateParameters) totalLines = gLinesInCircle;
+ if (gAnimateParameters)
+ {
+  totalLines = gLinesInCircle;
+  InitialiseBuffers();
+ }
  for (var i=0; i<totalLines && gCirclePosition<gRotations*360; i++)
  {
   theta1 = 2 * Math.PI * gCirclePosition / 360;
@@ -197,7 +201,6 @@ function Tick()
  {
   gMultiplier += gAnimationRate;
   gCirclePosition = 0;
-  InitialiseBuffers();
  }
  else
  {
