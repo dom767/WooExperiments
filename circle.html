@@ -5,21 +5,83 @@
 var gBuffer = new Array();
 var gHeight = 800;
 var gWidth = 800;
-var gNumLines = 10;
-var gDotDensity = 1;
-var gDotWeight = 32;
-var gLinesInCircle = 720;
+var gNumLines;
+var gDotDensity;
+var gDotWeight;
+var gLinesInCircle;
 var gCirclePosition = 0.0;
-var gInitialMultiplier = 2.0;
+var gInitialMultiplier;
 var gMultiplier = 2;
 var gStop = false;
-var gAnimateParameters = true;
+var gAnimateParameters;
+var gAnimationRate;
+var gRotations;
+var gExposureAmount;
+
+// https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+function hslToRgb(h, s, l){
+    var r, g, b;
+
+    if(s == 0){
+        r = g = b = l; // achromatic
+    }else{
+        var hue2rgb = function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
 
 function clamp(value, min, max)
 {
  if (value<=min) return min;
  if (value>=max) return max;
  return value;
+}
+
+function colour(r, g, b)
+{
+ this.mR = r;
+ this.mG = g;
+ this.mB = b;
+}
+
+colour.prototype.SetHSL = function()
+{
+ var h = arguments[0];
+ var s = arguments[1];
+ var l = arguments[2];
+
+    if(s == 0){
+        this.mR = this.mG = this.mB = l; // achromatic
+    }else{
+        var hue2rgb = function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        this.mR = hue2rgb(p, q, h + 1/3);
+        this.mG = hue2rgb(p, q, h);
+        this.mB = hue2rgb(p, q, h - 1/3);
+    }
 }
 
 function vector(x, y)
@@ -63,11 +125,13 @@ function InitialiseBuffers()
  for (y=0; y<gHeight; y++)
   for (x=0; x<gWidth; x++)
    {
-    gBuffer[x+gWidth*y]=0.0;
+    gBuffer[3*(x+gWidth*y)]=0.0;
+    gBuffer[3*(x+gWidth*y)+1]=0.0;
+    gBuffer[3*(x+gWidth*y)+2]=0.0;
    }
 }
 
-function drawLine(start, end)
+function drawLine(start, end, col)
 {
  var diff = end.sub(start);
  var dist = diff.length();
@@ -81,28 +145,28 @@ function drawLine(start, end)
   remx = index.mX - ix;
   iy = Math.trunc(index.mY);
   remy = index.mY - iy;
-  gBuffer[ix + iy*gWidth] += gDotWeight * (1.0-remy) * (1.0-remx);
-  gBuffer[ix + 1 + iy*gWidth] += gDotWeight * (1.0-remy) * remx;
-  gBuffer[ix + (1+iy)*gWidth] += gDotWeight * remy * (1.0-remx);
-  gBuffer[ix + 1 + (1+iy)*gWidth] += gDotWeight * remy * remx;;
+  var tl=3*(ix + iy*gWidth);
+  var tr=3*(ix + 1 + iy*gWidth);
+  var bl=3*(ix + (1+iy)*gWidth);
+  var br=3*(ix + 1 + (1+iy)*gWidth);
+  gBuffer[tl] += col.mR * gDotWeight * (1.0-remy) * (1.0-remx);
+  gBuffer[tl+1] += col.mG * gDotWeight * (1.0-remy) * (1.0-remx);
+  gBuffer[tl+2] += col.mB * gDotWeight * (1.0-remy) * (1.0-remx);
+  gBuffer[tr] += col.mR * gDotWeight * (1.0-remy) * remx;
+  gBuffer[tr+1] += col.mG * gDotWeight * (1.0-remy) * remx;
+  gBuffer[tr+2] += col.mB * gDotWeight * (1.0-remy) * remx;
+  gBuffer[bl] += col.mR * gDotWeight * remy * (1.0-remx);
+  gBuffer[bl+1] += col.mG * gDotWeight * remy * (1.0-remx);
+  gBuffer[bl+2] += col.mB * gDotWeight * remy * (1.0-remx);
+  gBuffer[br] += col.mR * gDotWeight * remy * remx;;
+  gBuffer[br+1] += col.mG * gDotWeight * remy * remx;;
+  gBuffer[br+2] += col.mB * gDotWeight * remy * remx;;
   index = index.add(increment);
  }
 }
 
-function Tick()
+function RenderBuffer()
 {
- var totalLines = gNumLines;
- if (gAnimateParameters) totalLines = gLinesInCircle;
- for (var i=0; i<totalLines; i++)
- {
-  theta1 = 2 * Math.PI * gCirclePosition / 360;
-  theta2 = 2 * Math.PI * ((gCirclePosition*gMultiplier)%360) / 360;
-  startPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta1), gHeight/2-gWidth*0.45*Math.sin(theta1));
-  endPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta2), gHeight/2-gWidth*0.45*Math.sin(theta2))
-  gCirclePosition += (360 / gLinesInCircle);
-  drawLine(startPos, endPos);
- }
-
  var canvas = document.getElementById('canvas1');
  
  if (canvas.getContext)
@@ -115,28 +179,65 @@ function Tick()
   {
    for (x=0; x<gWidth; x++)
    {
-    imageData.data[4*(x+y*gWidth)] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
-    imageData.data[4*(x+y*gWidth)+1] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
-    imageData.data[4*(x+y*gWidth)+2] = clamp(gBuffer[x+y*gWidth]*32, 0, 255);
+    var idx = 3 * (x+y*gWidth);
+	var r = gBuffer[idx];
+	var g = gBuffer[idx+1];
+	var b = gBuffer[idx+2];
+    var brightness = 0.33*(r + g + b);
+	var exp = 1 - Math.exp(-brightness*gExposureAmount);
+	r *= exp;
+	g *= exp;
+	b *= exp;
+	imageData.data[4*(x+y*gWidth)] = clamp(r*255.99, 0, 255);
+    imageData.data[4*(x+y*gWidth)+1] = clamp(g*255.99, 0, 255);
+    imageData.data[4*(x+y*gWidth)+2] = clamp(b*255.99, 0, 255);
     imageData.data[4*(x+y*gWidth)+3] = 255;
    }
   }
  }
  
  ctx.putImageData(imageData,0,0);
+}
+
+function Tick()
+{
+ var totalLines = gNumLines;
+ if (gAnimateParameters) totalLines = gLinesInCircle;
+ for (var i=0; i<totalLines && gCirclePosition<gRotations*360; i++)
+ {
+  theta1 = 2 * Math.PI * gCirclePosition / 360;
+  theta2 = 2 * Math.PI * ((gCirclePosition*gMultiplier)%360) / 360;
+  startPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta1), gHeight/2-gWidth*0.45*Math.sin(theta1));
+  endPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta2), gHeight/2-gWidth*0.45*Math.sin(theta2))
+  gCirclePosition += (360 / gLinesInCircle);
+  var col = new colour(1,0,0);
+  col.SetHSL((gCirclePosition % 360) / 360, 0.5, 0.5);
+  drawLine(startPos, endPos, col);
+ }
+
+ RenderBuffer();
  
  if (gAnimateParameters)
  {
-  gMultiplier += 0.02;
+  gMultiplier += gAnimationRate;
   gCirclePosition = 0;
   InitialiseBuffers();
+ }
+ else
+ {
+  if (gCirclePosition>=gRotations*360)
+   gStop = true;
  }
 
  var currentParameterInput = document.getElementById('currentParameter');
  currentParameterInput.value = gMultiplier;
+ var currentAngleInput = document.getElementById('currentAngle');
+ currentAngleInput.value = gCirclePosition;
 
  if (!gStop)
+ {
   setTimeout(Tick, 17);
+ }
 }
 
 function guiStart()
@@ -171,6 +272,12 @@ function guiReadParameters()
  gDotDensity = parseFloat(guiDotDensity.value);
  var guiDotWeight = document.getElementById('dotWeight');
  gDotWeight = parseFloat(guiDotWeight.value);
+ var guiRotations = document.getElementById('rotations');
+ gRotations = parseFloat(guiRotations.value);
+ var guiAnimationRate = document.getElementById('animationRate');
+ gAnimationRate = parseFloat(guiAnimationRate.value);
+ var guiExposureAmount = document.getElementById('exposureAmount');
+ gExposureAmount = parseFloat(guiExposureAmount.value);
 }
 
 
@@ -182,7 +289,7 @@ function guiReadParameters()
 <CANVAS id="canvas1" width="800" height="800" style="border:1px solid #000000;"></CANVAS>
 </DIV>
 
-<DIV style="float: left;">
+<DIV style="float: left;padding:20px;">
 <DIV style="border:1px;width:200px;float: left;" ><B>Simulation Controls</B></DIV>
 <BR>
 <BUTTON onclick="guiStart()" style="width:200px">Start Animation</button>
@@ -192,6 +299,10 @@ function guiReadParameters()
 <BUTTON onclick="guiReset()" style="width:200px">Reset</button>
 <BR>
 <DIV style="border:1px;width:200px;float: left;" ><INPUT id="animateParamters" checked="true" type="checkbox" onchange="guiReadParameters()">Animate Parameters</INPUT></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Animation Rate</DIV><INPUT id="animationRate" value=0.02 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Rotations</DIV><INPUT id="rotations" value=1.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
 <BR>
 <DIV style="border:1px;width:200px;float: left;" ><B>Value Controls</B></DIV>
@@ -204,13 +315,21 @@ function guiReadParameters()
 <BR>
 <DIV style="border:1px;width:140px;float: left;" >Dot Density</DIV><INPUT id="dotDensity" value=1.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Dot Weight</DIV><INPUT id="dotWeight" value=32.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Dot Weight</DIV><INPUT id="dotWeight" value=0.5 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
 <BR>
 
 <DIV style="border:1px;width:200px;float: left;" ><B>Current Values</B></DIV>
 <BR>
 <DIV style="border:1px;width:140px;float: left;" >Current Parameter</DIV><INPUT id="currentParameter" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Current Angle</DIV><INPUT id="currentAngle" style="width:60px" style="text-align:right;"/></input>
+<BR>
+<BR>
+
+<DIV style="border:1px;width:200px;float: left;" ><B>Exposure</B></DIV>
+<BR>
+<DIV style="border:1px;width:140px;float: left;" >Amount</DIV><INPUT id="exposureAmount" value=1 style="width:60px" style="text-align:right;" onchange="guiReadParameters();RenderBuffer();"/></input>
 <BR>
 
 </BODY>
