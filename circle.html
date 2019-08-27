@@ -91,12 +91,13 @@ vector.prototype.length = function()
 function Initialise()
 {
  InitialiseBuffers();
- GuiReadParameters();
+ guiReadParameters();
  Tick();
 }
 
 function InitialiseBuffers()
 {
+ // prime a floating point framebuffer (r+g+b values)
  for (y=0; y<gHeight; y++)
   for (x=0; x<gWidth; x++)
    {
@@ -109,13 +110,16 @@ function InitialiseBuffers()
 function drawLine(start, end, col)
 {
  var diff = end.sub(start);
- var dist = diff.length();
+ var dist = diff.length(); //density is constant in space
  var index = start;
  if (dist==0) return;
  var increment = end.sub(start);
  increment = increment.div(dist*gDotDensity);
+
+ // draw a pixel at every point along the line
  for (var i=0; i<=dist*gDotDensity; i++)
  {
+  // anti-aliased pixel render
   ix = Math.trunc(index.mX);
   remx = index.mX - ix;
   iy = Math.trunc(index.mY);
@@ -147,9 +151,9 @@ function RenderBuffer()
  if (canvas.getContext)
  {
   var ctx = canvas.getContext('2d');
-  ctx.clearRect(0,gHeight,gWidth,200);
   var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
-  
+
+  // transfer pixels from floating point to integer...  
   for (y=0; y<gHeight; y++)
   {
    for (x=0; x<gWidth; x++)
@@ -158,14 +162,11 @@ function RenderBuffer()
 	var r = gBuffer[idx];
 	var g = gBuffer[idx+1];
 	var b = gBuffer[idx+2];
-    var brightness = 0.33*(r + g + b);
-	var exp = 1 - Math.exp(-brightness*gExposureAmount);
-	r *= exp;
-	g *= exp;
-	b *= exp;
-	imageData.data[4*(x+y*gWidth)] = clamp(r*255.99, 0, 255);
-    imageData.data[4*(x+y*gWidth)+1] = clamp(g*255.99, 0, 255);
-    imageData.data[4*(x+y*gWidth)+2] = clamp(b*255.99, 0, 255);
+    var brightness = 0.33*(r + g + b); // not greyscale intensity, meh!
+	var exp = 1 - Math.exp(-brightness*gExposureAmount); // fun(x) = 1 - exp(-x) <== outputs 0-1, from full range 0-LARGE
+	imageData.data[4*(x+y*gWidth)] = clamp(r*exp*255.99, 0, 255);
+    imageData.data[4*(x+y*gWidth)+1] = clamp(g*exp*255.99, 0, 255);
+    imageData.data[4*(x+y*gWidth)+2] = clamp(b*exp*255.99, 0, 255);
     imageData.data[4*(x+y*gWidth)+3] = 255;
    }
   }
@@ -233,7 +234,7 @@ function guiReset()
  InitialiseBuffers();
 }
 
-function GuiReadParameters()
+function guiReadParameters()
 {
  var guiAnimateParameters = document.getElementById('animateParamters');
  gAnimateParameters = guiAnimateParameters.checked;
@@ -273,24 +274,24 @@ function GuiReadParameters()
 <BR>
 <BUTTON onclick="guiReset()" style="width:200px">Reset</button>
 <BR>
-<DIV style="border:1px;width:200px;float: left;" ><INPUT id="animateParamters" checked="true" type="checkbox" onchange="GuiReadParameters()">Animate Parameters</INPUT></DIV>
+<DIV style="border:1px;width:200px;float: left;" ><INPUT id="animateParamters" checked="true" type="checkbox" onchange="guiReadParameters()">Animate Parameters</INPUT></DIV>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Animation Rate</DIV><INPUT id="animationRate" value=0.02 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Animation Rate</DIV><INPUT id="animationRate" value=0.02 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Rotations</DIV><INPUT id="rotations" value=1.0 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Rotations</DIV><INPUT id="rotations" value=1.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
 <BR>
 <DIV style="border:1px;width:200px;float: left;" ><B>Value Controls</B></DIV>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Start Parameter</DIV><INPUT id="startParameter" value=2.0 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Start Parameter</DIV><INPUT id="startParameter" value=2.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Lines in Circle</DIV><INPUT id="linesInCircle" value=720.0 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Lines in Circle</DIV><INPUT id="linesInCircle" value=720.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Lines per frame</DIV><INPUT id="linesPerFrame" value=10.0 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Lines per frame</DIV><INPUT id="linesPerFrame" value=10.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Dot Density</DIV><INPUT id="dotDensity" value=1.0 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Dot Density</DIV><INPUT id="dotDensity" value=1.0 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Dot Weight</DIV><INPUT id="dotWeight" value=0.5 style="width:60px" style="text-align:right;" onchange="GuiReadParameters()"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Dot Weight</DIV><INPUT id="dotWeight" value=0.5 style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
 <BR>
 <BR>
 
@@ -304,7 +305,7 @@ function GuiReadParameters()
 
 <DIV style="border:1px;width:200px;float: left;" ><B>Exposure</B></DIV>
 <BR>
-<DIV style="border:1px;width:140px;float: left;" >Amount</DIV><INPUT id="exposureAmount" value=1 style="width:60px" style="text-align:right;" onchange="GuiReadParameters();RenderBuffer();"/></input>
+<DIV style="border:1px;width:140px;float: left;" >Amount</DIV><INPUT id="exposureAmount" value=1 style="width:60px" style="text-align:right;" onchange="guiReadParameters();RenderBuffer();"/></input>
 <BR>
 
 </BODY>
