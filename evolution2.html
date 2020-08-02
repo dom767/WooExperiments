@@ -36,7 +36,7 @@ var colourNutrition = false;
 var ageRate = 1;
 var ageMultiplier = 0.002
 var ageSV = 0.0001;
-var tickRate=16;
+var tickRate=1;
 var mutationRate=0.1;
 var animalColourMutationRate=0.1;
 var plantColourMutationRate=0.0005;
@@ -189,6 +189,18 @@ function clamp(value, min, max)
  return value;
 }
 
+function min(value, min)
+{
+ if(value<min) return value;
+ return min;
+}
+
+function max(value, max)
+{
+ if(value>max) return value;
+ return max;
+}
+
 function animal(x, y, vx, vy, h, ageRate, speed, turnSpeed, visibility)
 {
  this.mX = x;
@@ -216,6 +228,7 @@ function spawnPlant()
 function spawnAnimal()
 {
  animals[numAnimals++] = new animal(Math.random()*width, Math.random()*height, Math.random()-0.5, Math.random()-0.5, Math.random(), 1, 0.5+Math.random(), 0.5+Math.random(), 0.5+Math.random());
+// animals[numAnimals++] = new animal(Math.random()*width, Math.random()*height, Math.random()-0.5, Math.random()-0.5, Math.random(), 1, 1, 1, 1);
 }
 
 function Initialise()
@@ -318,7 +331,93 @@ function TickAnimals()
  {
   animals[i].mAge += ageMultiplier * animals[i].mAgeRate;
   
-  var distToTargetX = animals[i].mTargetX - animals[i].mX;
+  // play mode
+ 
+  // get nearest animal
+  var neighbourdist2 = 1000000000000;
+  var neighbouridx = -1;
+
+  var flockDistance = 15;
+  var positionForce = 0.2;
+  var orientationForce = 0.4;
+  var seperationForce = 100;
+  var positionForceX = 0;
+  var positionForceY = 0;
+  var orientationForceX = 0;
+  var orientationForceY = 0;
+
+  for (var j=0; j<numAnimals; j++)
+  {
+   if (j!=i)
+   {
+    var distx = animals[j].mX - animals[i].mX;
+	var disty = animals[j].mY - animals[i].mY;
+	var dist2 = distx*distx + disty*disty;
+	
+	if (dist2<10000)
+	{
+	 var dist = Math.sqrt(dist2);
+	 var pForce = positionForce * 100-(max(dist-flockDistance, 0));
+	 positionForceX += positionForce * (animals[j].mX - animals[i].mX);// * (100-dist);
+	 positionForceY += positionForce * (animals[j].mY - animals[i].mY);// * (100-dist);
+	 orientationForceX += (100-dist)*orientationForce*(animals[j].vX - animals[i].vX);
+	 orientationForceY += (100-dist)*orientationForce*(animals[j].vY - animals[i].vY);
+	}
+	if (dist2<neighbourdist2)
+	{
+	 neighbourdist2 = dist2;
+	 neighbouridx = j;
+	}
+   }
+  }
+  
+  animals[i].mTargetX = animals[neighbouridx].mX; 
+  animals[i].mTargetY = animals[neighbouridx].mY;  
+
+  var attractx = 0;
+  var attracty = 0;
+
+  attractx += positionForceX + orientationForceX;
+  attracty += positionForceY + orientationForceY;
+
+
+  var dist = Math.sqrt(neighbourdist2);
+  if (dist<flockDistance)
+  {
+   var force = seperationForce * flockDistance/dist;  
+   attractx -= (force*(animals[neighbouridx].mX-animals[i].mX));
+   attracty -= (force*(animals[neighbouridx].mY-animals[i].mY));
+  }
+  
+//  attractx += orientationForce*(animals[neighbouridx].vX - animals[i].vX);
+//  attracty += orientationForce*(animals[neighbouridx].vY - animals[i].vY);
+ 
+  //border push
+  var borderSize = 40;
+  var borderForce = 1000;
+  if (animals[i].mX<borderSize) attractx += borderForce*(1-(animals[i].mX/borderSize));
+  if (animals[i].mY<borderSize) attracty += borderForce*(1-(animals[i].mY/borderSize));
+  if (animals[i].mX>width-borderSize) attractx -= borderForce*(1-((width-animals[i].mX)/borderSize));
+  if (animals[i].mY>height-borderSize) attracty -= borderForce*(1-((height-animals[i].mY)/borderSize));
+
+  animals[i].vX += attractx * 0.0001;//3 * hungerModifier * animals[i].mTurnSpeed * (0.02*closeness+0.04)*dx/dist;
+  animals[i].vY += attracty * 0.0001;//3 * hungerModifier * animals[i].mTurnSpeed * (0.02*closeness+0.04)*dy/dist;
+
+  vdist = Math.sqrt(animals[i].vX*animals[i].vX + animals[i].vY*animals[i].vY);
+  animals[i].vX/=vdist;
+  animals[i].vY/=vdist;
+  
+  var speed = animals[i].mSpeed;// * hungerModifier;
+  animals[i].mX += animals[i].vX*speed;
+  animals[i].mY += animals[i].vY*speed;
+  
+  if (animals[i].mX>width) animals[i].mX=width;
+  if (animals[i].mY>height) animals[i].mY=height;
+  if (animals[i].mX<0) animals[i].mX=0;
+  if (animals[i].mY<0) animals[i].mY=0;
+ }
+  
+/*  var distToTargetX = animals[i].mTargetX - animals[i].mX;
   var distToTargetY = animals[i].mTargetY - animals[i].mY;
   var distToTarget = distToTargetX*distToTargetX + distToTargetY*distToTargetY;
 
@@ -435,15 +534,10 @@ function TickAnimals()
   if (animals[i].mY>height) animals[i].mY=height;
   if (animals[i].mX<0) animals[i].mX=0;
   if (animals[i].mY<0) animals[i].mY=0;
-/*  
-  if (animals[i].mFood>fullLevel)
-  {
-      animals[i].mFood--;
-  }*/
- }
- 
+ }*/
+
  // animal death sweep
- for (i=0; i<numAnimals; i++)
+ for (var i=0; i<numAnimals; i++)
  {
   if (animals[i].mFood<0.0)
   {

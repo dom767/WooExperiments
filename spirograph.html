@@ -268,16 +268,18 @@ function Tick()
   totalLines = gLinesInCircle*gRotations;
   InitialiseBuffers();
  }
+ gCirclePosition = 1 / gLinesInCircle;
  for (var i=0; i<totalLines && gCirclePosition<gRotations*360; i++)
  {
   theta1 = 2 * Math.PI * gCirclePosition / 360;
   theta2 = 2 * Math.PI * ((gCirclePosition*gMultiplier)%360) / 360;
   startPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta1), gHeight/2-gWidth*0.45*Math.sin(theta1));
   endPos = new vector(gWidth/2-gWidth*0.45*Math.cos(theta2), gHeight/2-gWidth*0.45*Math.sin(theta2))
-  gCirclePosition += (360 / gLinesInCircle);
   var col = new colour(1,0,0);
   col.SetHSL((gCirclePosition % 360) / 360, 0.5, 0.5);
   drawLine(startPos, endPos, col);
+  //gCirclePosition += (360 / gLinesInCircle);
+  gCirclePosition = (gCirclePosition*gMultiplier)%360;
   //drawAALine(startPos, endPos, col); // <== 30% quicker for default lines but shitter
  }
 
