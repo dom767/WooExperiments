@@ -1,5 +1,9 @@
 <HTML>
 <HEAD>
+<STYLE>
+* {margin:0;padding:0;}
+canvas1 {display:block;}
+</STYLE>
 <SCRIPT>
 
 var stop=false;
@@ -7,14 +11,15 @@ var gZoom=0.5;
 var gPosX=0;
 var gPosY=0;
 var mandelArray=new Array();
-var gWidth = 1280;
-var gHeight = 700;
+var juliaArray=new Array();
+var gWidth = window.innerWidth;
+var gHeight = window.innerHeight;
 
 // progressive renderer
-var gComplete = false;
+var gComplete = true;
 var gProgressiveIndex = 0;
 var gProgressiveLevel = 16;
-var gSmoothShading = false;
+var gSmoothShading = true;
 
 //////////////////////////COLOUR///////////////////////////////
 function colour(r, g, b)
@@ -24,39 +29,7 @@ function colour(r, g, b)
  this.mB = b;
 }
 
-colour.prototype.mul = function()
-{
- var mul = arguments[0];
- return new colour(this.mR*mul, this.mG*mul, this.mB*mul);
-}
-
-// Original... https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
-colour.prototype.SetHSL = function()
-{
- var h = arguments[0];
- var s = arguments[1];
- var l = arguments[2];
-
-    if(s == 0){
-        this.mR = this.mG = this.mB = l; // achromatic
-    }else{
-        var hue2rgb = function hue2rgb(p, q, t){
-            if(t < 0) t += 1;
-            if(t > 1) t -= 1;
-            if(t < 1/6) return p + (q - p) * 6 * t;
-            if(t < 1/2) return q;
-            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-            return p;
-        }
-
-        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        var p = 2 * l - q;
-        this.mR = hue2rgb(p, q, h + 1/3);
-        this.mG = hue2rgb(p, q, h);
-        this.mB = hue2rgb(p, q, h - 1/3);
-    }
-}
-
+//////////////////////////COLOURKEYGFRAME///////////////////////////////
 function ColourKeyframe(pos, col)
 {
  this.mColour = col;
@@ -128,8 +101,28 @@ function clamp(value, min, max)
  return value;
 }
 
+function ReadQueryString()
+{
+ var urlParams;
+ var match, pl= /\+/g, search = /([^&=]+)=?([^&]*)/g;
+ var decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+ var query  = window.location.search.substring(1);
+
+ urlParams = {};
+ while (match = search.exec(query))
+  urlParams[decode(match[1])] = decode(match[2]);
+  
+ if (urlParams["x"] != null)
+  gPosX = parseFloat(urlParams["x"]);
+ if (urlParams["y"] != null)
+  gPosY = parseFloat(urlParams["y"]);
+ if (urlParams["z"] != null)
+  gZoom = parseFloat(urlParams["z"]);
+}
+
 function Initialise()
 {
+ ReadQueryString();
  for (y=0; y<gHeight; y++)
   for (x=0; x<gWidth; x++)
    {
@@ -143,8 +136,101 @@ function Initialise()
  guiSetInitialParams();
  document.getElementById("canvas1").addEventListener("mousedown", canvasMouseDown);
  document.getElementById("body").addEventListener("mouseup", MouseUp);
+ document.addEventListener("keydown", KeyDown);
  document.addEventListener("mouseleave", MouseLeave);
  document.addEventListener("mousemove", MouseMove);
+ document.addEventListener("mousewheel", MouseWheel);
+ window.addEventListener("resize", ResizeWindow);
+ ResizeWindow();
+}
+
+function GetRows(progressiveLevel)
+{
+ switch(progressiveLevel)
+ {
+  case 16:
+   return gHeight;
+   break;
+  case 8:
+   return gHeight;
+   break;
+  case 4:
+   return gHeight/4;
+   break;
+  case 2:
+   return gHeight/16;
+   break;
+  case 1:
+   return gHeight/64;
+   break;
+  case 0.5:	
+   return gHeight/64;
+   break;
+  case 0.25:	
+   return gHeight/64;
+   break;
+ }
+ return gHeight;
+}
+
+function DrawJulia()
+{
+ var canvas = document.getElementById('canvas2');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, 400, 300);
+
+  rows = GetRows(gProgressiveLevel);
+ 
+  for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var idx = (x+y*400);
+	var m = juliaArray[idx];
+    var col = gColourGradient.GetColour(m/256);
+	
+	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+	{
+	 col = new colour(1,0.5,0);
+	}
+	
+	imageData.data[4*(x+y*400)] = col.mR*255.99;
+    imageData.data[4*(x+y*400)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*400)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*400)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+
+function CalculateJulia()
+{
+ var rZoom = 2;
+ for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var mx = rZoom * (x-(400/2)) / (400/2)
+    var my = rZoom * (y-(300/2)) / (400/2)
+    var newx = mx;
+  	var newy = my;
+	var oldx = 0;
+	var oldy = 0;
+	var mag2 = 0;
+	
+    for (var i=0; i<256 & mag2 < 4; i++)
+  	{
+	 oldx = newx;
+	 oldy = newy;
+	 newx = oldx * oldx - oldy * oldy + gCanvasX;
+	 newy = 2 * oldx * oldy + gCanvasY;
+	 mag2 = newx*newx + newy*newy;
+	}
+	
+	var iterations = i;
+	juliaArray[x+y*400] = clamp(iterations,0,256);
+   }
 }
 
 function DrawMandelbrot()
@@ -156,12 +242,21 @@ function DrawMandelbrot()
   var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
 
   ctx.clearRect(0,0,gWidth,gHeight);
+  
+  rows = GetRows(gProgressiveLevel);
+ 
   for (y=0; y<gHeight; y++)
    for (x=0; x<gWidth; x++)
    {
     var idx = (x+y*gWidth);
 	var m = mandelArray[idx];
     var col = gColourGradient.GetColour(m/256);
+	
+	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+	{
+	 col = new colour(1,0.5,0);
+	}
+	
 	imageData.data[4*(x+y*gWidth)] = col.mR*255.99;
     imageData.data[4*(x+y*gWidth)+1] = col.mG*255.99;
     imageData.data[4*(x+y*gWidth)+2] = col.mB*255.99;
@@ -172,35 +267,9 @@ function DrawMandelbrot()
  }
 }
 
-
-
 function CalculateMandelbrot(progressiveLevel, progressiveIndex)
 {
- var rows=0;
- switch(progressiveLevel)
- {
-  case 16:
-   rows = gHeight;
-   break;
-  case 8:
-   rows = gHeight;
-   break;
-  case 4:
-   rows = gHeight/4;
-   break;
-  case 2:
-   rows = gHeight/16;
-   break;
-  case 1:
-   rows = gHeight/64;
-   break;
-  case 0.5:	
-   rows = gHeight/64;
-   break;
-  case 0.25:	
-   rows = gHeight/64;
-   break;
- }
+ var rows=GetRows(progressiveLevel);
  var rZoom = 1 / gZoom;
  var progressive = progressiveLevel>1 ? progressiveLevel : 1;
  var antialias = progressiveLevel<1 ? 1/progressiveLevel : 1;
@@ -251,6 +320,8 @@ function guiDraw()
 
 var gDragStartX, gDragStartY;
 var gMouseDown = false;
+var gCanvasX=0;
+var gCanvasY=0;
 
 function canvasMouseDown(e)
 {
@@ -261,6 +332,10 @@ function canvasMouseDown(e)
  var canvasElement = document.getElementById('canvas1');
  var canvasX = worldX - canvasElement.offsetLeft;
  var canvasY = worldY - canvasElement.offsetTop;
+
+ gCanvasX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+ gCanvasY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+ StartJulia();
 
  gDragStartX = canvasX;
  gDragStartY = canvasY;
@@ -291,12 +366,79 @@ function MouseMove(e)
 
  if (gMouseDown && (gDragStartX!=canvasX || gDragStartY!=canvasY))
  {
-  console.log("Mouse Move : " + canvasX + ", " + canvasY);
   gPosX -= (canvasX - gDragStartX)/((gWidth*gZoom)/2);
   gPosY -= (canvasY - gDragStartY)/((gWidth*gZoom)/2);
   gDragStartX = canvasX;
   gDragStartY = canvasY;
   RenderAgain();
+ }
+}
+
+function MouseWheel(e)
+{
+ var delta = Math.sign(event.deltaY);
+
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ if (delta>0)
+ {// zoom out
+  gPosX -= 0.47*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY -= 0.47*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  SetZoom(gZoom / 1.3);
+  RenderAgain();
+ }
+ else
+ {// zoom in
+  SetZoom(gZoom * 1.3);
+  gPosX += (1.3*0.5)*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY += (1.3*0.5)*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  RenderAgain();
+ }
+  
+}
+
+function KeyDown(e)
+{
+ if (e.shiftKey)
+ {
+  if (e.keyCode == '38')
+  {// up
+   SetZoom(gZoom * 1.1);
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   SetZoom(gZoom / 1.1);
+   RenderAgain();
+  }
+ }
+ else
+ {
+  if (e.keyCode == '38')
+  {// up
+   gPosY -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   gPosY += 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '37')
+  {// left
+   gPosX -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '39')
+  {// right
+   gPosX += 0.1/gZoom;
+   RenderAgain();
+  }
  }
 }
 
@@ -310,78 +452,71 @@ function MouseLeave(e)
 function SetZoom(zoom)
 {
  gZoom = zoom;
- var guiZoom = document.getElementById('zoom');
- guiZoom.value = zoom;
 }
 
-function guiZoomIn()
+function ResizeWindow()
 {
- SetZoom(gZoom * 1.1);
- RenderAgain();
-}
-
-function guiZoomOut()
-{
- SetZoom(gZoom / 1.1);
- RenderAgain();
-}
-
-function guiMoveUp()
-{
- gPosY -= 0.1/gZoom;
- RenderAgain();
-}
-
-function guiMoveDown()
-{
- gPosY += 0.1/gZoom;
- RenderAgain();
-}
-
-function guiMoveLeft()
-{
- gPosX -= 0.1/gZoom;
- RenderAgain();
-}
-
-function guiMoveRight()
-{
- gPosX += 0.1/gZoom;
+ console.log("ResizeWindow (width="+window.innerWidth+", height="+window.innerHeight+")");
+ var canvas = document.getElementById('canvas1');
+ canvas.width = window.innerWidth;
+ gWidth = window.innerWidth;
+ canvas.height = window.innerHeight;
+ gHeight = window.innerHeight;
  RenderAgain();
 }
 
 function guiSetInitialParams()
 {
- var guiInitialAnimals = document.getElementById('initialAnimals');
- guiInitialAnimals.value = initialAnimals;
- var guiZoom = document.getElementById('zoom');
- guiZoom.value = gZoom;
- var guiSmoothShading = document.getElementById('smoothShading');
- guiSmoothShading.checked = gSmoothShading;
+// var guiSmoothShading = document.getElementById('smoothShading');
+// guiSmoothShading.checked = gSmoothShading;
 }
 
 function guiReadParameters()
 {
- var guiInitialAnimals = document.getElementById('initialAnimals');
- initialAnimals = guiInitialAnimals.value;
- var guiZoom = document.getElementById('zoom');
- gZoom = guiZoom.value;
- var guiSmoothShading = document.getElementById('smoothShading');
- gSmoothShading = guiSmoothShading.checked;
+// var guiSmoothShading = document.getElementById('smoothShading');
+// gSmoothShading = guiSmoothShading.checked;
  RenderAgain();
 }
 
 function RenderAgain()
 {
  gDirty = true;
- if (!stop)
+ if (gComplete)
   setTimeout(Tick, 17);
+}
+
+var gJuliaDirty = false;
+var gJuliaComplete = true;
+
+function StartJulia()
+{
+ gJuliaDirty = true;
+ if (gJuliaComplete)
+  setTimeout(TickJulia, 17);
 }
 
 function DrawLowResolution()
 {
  CalculateMandelbrot(16);
  DrawMandelbrot();
+}
+
+function UpdateStats()
+{
+ var statsdiv = document.getElementById('stats');
+ statsdiv.innerHTML="X : "+gCanvasX+"<BR>Y : "+gCanvasY+"<BR>Zoom : "+gZoom; 
+}
+
+function TickJulia()
+{
+ if (gJuliaDirty)
+ {
+  UpdateStats();
+  CalculateJulia();
+  gJuliaComplete = true;
+  gJuliaDirty = false;
+ }
+ DrawJulia();
 }
 
 function Tick()
@@ -393,6 +528,10 @@ function Tick()
   gProgressiveIndex = 0;
   gDirty=false;
   gComplete=false;
+  if (window.history.replaceState)
+  {
+   window.history.replaceState({}, null, "mandelbrot.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom);
+  }
  }
  else
  {
@@ -430,7 +569,7 @@ function Tick()
   DrawMandelbrot();
 
  // next tick
- if (!stop)
+ if (!gComplete)
   setTimeout(Tick, 17);
 }
 
@@ -440,38 +579,23 @@ function Tick()
 <BODY id="body">
 
 <DIV style="float: left;">
-<CANVAS id="canvas1" width="1280" height="700" style="border:1px solid #000000;"></canvas>
+<CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
 </DIV>
-<DIV style="float: left;">
-<DIV style="border:1px;width:200px;float: left;" ><B>Simulation Controls</B></DIV>
+<SPAN style="position:fixed;border-width:2px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:50;left:50;color:white;">
+<DIV id="stats">
+X : 20<BR>
+Y : 714<BR>
+Zoom : 3.1
+</DIV>
 <BR>
-<BUTTON id="reset" onclick="guiDraw()" style="width:200px">Draw</button>
+<CANVAS style="canvas1" id="canvas2" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
 <BR>
-<BUTTON id="reset" onclick="guiZoomIn()" style="width:200px">Zoom in</button>
-<BR>
-<BUTTON id="reset" onclick="guiZoomOut()" style="width:200px">Zoom out</button>
-<BR>
-<BUTTON id="reset" onclick="guiMoveUp()" style="width:200px">Move Up</button>
-<BR>
-<BUTTON id="reset" onclick="guiMoveDown()" style="width:200px">Move Down</button>
-<BR>
-<BUTTON id="reset" onclick="guiMoveLeft()" style="width:200px">Move Left</button>
-<BR>
-<BUTTON id="reset" onclick="guiMoveRight()" style="width:200px">Move Right</button>
-<BR>
-<DIV style="border:1px;width:140px;float: left;" ><INPUT id="smoothShading" type="checkbox" onchange="guiReadParameters()">Smooth Shading</INPUT></DIV>
-<BR>
+<CANVAS style="canvas1" id="canvas3" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
 <BR>
 
-<DIV style="border:1px;width:200px;float: left;" ><B>Parameters</B></DIV>
-<BR>
-<DIV style="border:1px;width:140px;float: left;" >Initial Animals</DIV><INPUT id="initialAnimals" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
-<BR>
-<DIV style="border:1px;width:140px;float: left;" >Zoom</DIV><INPUT id="zoom" style="width:60px" style="text-align:right;" onchange="guiReadParameters()"/></input>
-<BR>
-<BR>
 
 </DIV>
+</SPAN>
 
 <script>
 Initialise();

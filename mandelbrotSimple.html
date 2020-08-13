@@ -1,0 +1,61 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+
+var gZoom=0.5;
+var gPosX=0;
+var gPosY=0;
+var gWidth = 1280; // size of the canvas
+var gHeight = 700;
+
+function Initialise()
+{
+ // get hold of the HTML canvas object
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+ 
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+	var mx = gPosX + (x-(gWidth/2)) / (gWidth/2)/gZoom;
+    var my = gPosY + (y-(gHeight/2)) / (gWidth/2)/gZoom;
+  	var newx = 0;
+  	var newy = 0;
+	var oldx = 0;
+	var oldy = 0;
+	var i;
+	
+    for (i=0; i<256 & (newx*newx + newy*newy < 4); i++)
+  	{
+	 oldx = newx;
+	 oldy = newy;
+	 newx = oldx * oldx - oldy * oldy + mx;
+	 newy = 2 * oldx * oldy + my;
+	}
+
+	imageData.data[4*(x+y*gWidth)] = i;
+    imageData.data[4*(x+y*gWidth)+1] = i;
+    imageData.data[4*(x+y*gWidth)+2] = i;
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+</SCRIPT>
+
+</HEAD>
+<BODY id="body">
+
+<DIV style="float: left;">
+<CANVAS id="canvas1" width="1280" height="700" style="border:1px solid #000000;"></canvas>
+</DIV>
+
+<script>
+Initialise();
+</script>
+</BODY>
+</HTML>
