@@ -1,7 +1,7 @@
 <HTML>
 <HEAD>
 <STYLE>
-* {margin:0;padding:0;}
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
 canvas1 {display:block;}
 </STYLE>
 <SCRIPT>
@@ -20,6 +20,7 @@ var gComplete = true;
 var gProgressiveIndex = 0;
 var gProgressiveLevel = 16;
 var gSmoothShading = true;
+var gJuliaMode = false;
 
 //////////////////////////COLOUR///////////////////////////////
 function colour(r, g, b)
@@ -27,6 +28,13 @@ function colour(r, g, b)
  this.mR = r;
  this.mG = g;
  this.mB = b;
+}
+
+//////////////////////////VEC2/////////////////////////////////
+function vec2(x, y)
+{
+ this.mX = x;
+ this.mY = y;
 }
 
 //////////////////////////COLOURKEYGFRAME///////////////////////////////
@@ -81,7 +89,7 @@ ColourGradient.prototype.GetColour = function()
    {
     end = this.mColourKeyframe[i+1].mPosition;
    }
-  if (position>start && position<=end)
+  if (position>=start && position<=end)
   {
    var delta = (position-start) / (end-start);
    var r = this.mColourKeyframe[i+1].mColour.mR * delta + this.mColourKeyframe[i].mColour.mR * (1-delta);
@@ -118,6 +126,28 @@ function ReadQueryString()
   gPosY = parseFloat(urlParams["y"]);
  if (urlParams["z"] != null)
   gZoom = parseFloat(urlParams["z"]);
+ if (urlParams["m"] != null)
+  gJuliaMode = (parseInt(urlParams["m"])>0 ? true : false);
+ if (urlParams["jx"] != null)
+  gJuliaX = parseFloat(urlParams["jx"]);
+ if (urlParams["jy"] != null)
+  gJuliaY = parseFloat(urlParams["jy"]);
+}
+
+function SetPalette(index)
+{
+ var palette = [[[0,0,0],[0,0.5,1],[1,1,1],[1,0.5,0],[0,0,0],[1,1,1]],
+ [[1,1,1],[0,0.5,1],[1,1,1],[1,0.5,0],[1,1,1],[0,0,0]],
+ [[1,0,0],[0.8,0.8,0.1],[0.05,0.8,0.5],[0.05,0.1,0.7],[0.05,0.8,0.6],[0,0,0]],
+ [[0,0,0],[1,1,1],[0,0,0],[1,1,1],[0,0,0],[1,1,1]],
+ [[0,0,0],[0,1,0],[0.3,0.95,1],[0.95,1,0.35],[1,0.2,0],[0,0,0]]];
+ 
+ gColourGradient.mColourKeyframe[0].mColour = new colour(palette[index][0][0], palette[index][0][1], palette[index][0][2])
+ gColourGradient.mColourKeyframe[1].mColour = new colour(palette[index][1][0], palette[index][1][1], palette[index][1][2])
+ gColourGradient.mColourKeyframe[2].mColour = new colour(palette[index][2][0], palette[index][2][1], palette[index][2][2])
+ gColourGradient.mColourKeyframe[3].mColour = new colour(palette[index][3][0], palette[index][3][1], palette[index][3][2])
+ gColourGradient.mColourKeyframe[4].mColour = new colour(palette[index][4][0], palette[index][4][1], palette[index][4][2])
+ gColourGradient.mColourKeyframe[5].mColour = new colour(palette[index][5][0], palette[index][5][1], palette[index][5][2])
 }
 
 function Initialise()
@@ -142,6 +172,8 @@ function Initialise()
  document.addEventListener("mousewheel", MouseWheel);
  window.addEventListener("resize", ResizeWindow);
  ResizeWindow();
+ guiMenuVisibility(false, false, false);
+ setTimeout(Tick, 17);
 }
 
 function GetRows(progressiveLevel)
@@ -173,27 +205,72 @@ function GetRows(progressiveLevel)
  return gHeight;
 }
 
+function DrawOrbit()
+{
+ var canvas = document.getElementById('orbitCanvas');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,400,300);
+
+  var orbitPoints = new Array();
+  var orbitIndex = 0;
+
+  var mx = gCanvasX;
+  var my = gCanvasY;
+  var newx = 0;
+  var newy = 0;
+  if (gJuliaMode) {newx += mx;newy+=my;}
+  var oldx = 0;
+  var oldy = 0;
+  var mag2 = 0;
+  orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+
+  for (var i=0; i<256 & mag2 < 4; i++)
+  {
+   oldx = newx;
+   oldy = newy;
+   newx = oldx * oldx - oldy * oldy + mx;
+   newy = 2 * oldx * oldy + my;
+   if (gJuliaMode) {newx += gJuliaX-mx;newy+=gJuliaY-my;}
+   orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+   mag2 = newx*newx + newy*newy;
+  }
+
+  for (var i=0; i<orbitIndex; i++)
+  {
+   ctx.beginPath();
+   var col = gColourGradient.GetColour(i/256);
+   ctx.strokeStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.fillStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.arc(200 + 100*orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY, 5, 0, Math.PI*2);
+   ctx.fill();
+   if (i+1<orbitIndex)
+   {
+    ctx.beginPath();
+    ctx.moveTo(200 + 100 * orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY);
+    ctx.lineTo(200 + 100 * orbitPoints[i+1].mX, 150 + 100*orbitPoints[i+1].mY);
+	ctx.stroke();
+   }
+   
+  }
+ }
+}
+
 function DrawJulia()
 {
- var canvas = document.getElementById('canvas2');
+ var canvas = document.getElementById('pickerCanvas');
  if (canvas.getContext)
  {
   var ctx = canvas.getContext('2d');
   var imageData = ctx.getImageData(0, 0, 400, 300);
 
-  rows = GetRows(gProgressiveLevel);
- 
   for (y=0; y<300; y++)
    for (x=0; x<400; x++)
    {
     var idx = (x+y*400);
 	var m = juliaArray[idx];
     var col = gColourGradient.GetColour(m/256);
-	
-	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
-	{
-	 col = new colour(1,0.5,0);
-	}
 	
 	imageData.data[4*(x+y*400)] = col.mR*255.99;
     imageData.data[4*(x+y*400)+1] = col.mG*255.99;
@@ -284,6 +361,7 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
       var my = gPosY + rZoom * ((ay*1/antialias)+y-(gHeight/2)) / (gWidth/2)
   	  var newx = 0;
   	  var newy = 0;
+	  if (gJuliaMode) {newx += mx;newy+=my;}
 	  var oldx = 0;
 	  var oldy = 0;
 	  var mag2 = 0;
@@ -292,8 +370,16 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
   	  {
 	   oldx = newx;
 	   oldy = newy;
-	   newx = oldx * oldx - oldy * oldy + mx;
-	   newy = 2 * oldx * oldy + my;
+	   if (gJuliaMode)
+	   {
+	    newx = oldx * oldx - oldy * oldy + gJuliaX;
+		newy = 2 * oldx * oldy + gJuliaY;
+	   }
+	   else
+	   {
+	    newx = oldx * oldx - oldy * oldy + mx;
+	    newy = 2 * oldx * oldy + my;
+  	   }
 	   mag2 = newx*newx + newy*newy;
 	  }
 	
@@ -320,6 +406,8 @@ function guiDraw()
 
 var gDragStartX, gDragStartY;
 var gMouseDown = false;
+var gJuliaX=0;
+var gJuliaY=0;
 var gCanvasX=0;
 var gCanvasY=0;
 
@@ -333,9 +421,15 @@ function canvasMouseDown(e)
  var canvasX = worldX - canvasElement.offsetLeft;
  var canvasY = worldY - canvasElement.offsetTop;
 
- gCanvasX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
- gCanvasY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
- StartJulia();
+ if (gJuliaMode == false &&
+   (document.getElementById("JuliaSelector").hidden == false
+   || document.getElementById("OrbitViewer").hidden == false))
+ {
+  replaceURL();
+  gJuliaX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+  gJuliaY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+  gMouseMoved = true;
+ }
 
  gDragStartX = canvasX;
  gDragStartY = canvasY;
@@ -363,6 +457,10 @@ function MouseMove(e)
  var canvasElement = document.getElementById('canvas1');
  var canvasX = worldX - canvasElement.offsetLeft;
  var canvasY = worldY - canvasElement.offsetTop;
+
+ gCanvasX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+ gCanvasY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+ gMouseMoved = true;
 
  if (gMouseDown && (gDragStartX!=canvasX || gDragStartY!=canvasY))
  {
@@ -439,6 +537,43 @@ function KeyDown(e)
    gPosX += 0.1/gZoom;
    RenderAgain();
   }
+  if (e.keyCode == '74')
+  {
+   var guiJuliaMode = document.getElementById('juliaMode');
+   gJuliaMode = !gJuliaMode;
+   guiJuliaMode.checked = gJuliaMode;
+   RenderAgain();
+  }
+  if (e.keyCode == '49')
+  {
+   SetPalette(0);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '50')
+  {
+   SetPalette(1);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '51')
+  {
+   SetPalette(2);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '52')
+  {
+   SetPalette(3);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '53')
+  {
+   SetPalette(4);
+   if (gComplete)
+    DrawMandelbrot();
+  }
  }
 }
 
@@ -462,38 +597,34 @@ function ResizeWindow()
  gWidth = window.innerWidth;
  canvas.height = window.innerHeight;
  gHeight = window.innerHeight;
+ gMouseMoved=true;
  RenderAgain();
 }
 
 function guiSetInitialParams()
 {
-// var guiSmoothShading = document.getElementById('smoothShading');
-// guiSmoothShading.checked = gSmoothShading;
+ var guiSmoothShading = document.getElementById('smoothShading');
+ guiSmoothShading.checked = gSmoothShading;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ guiJuliaMode.checked = gJuliaMode;
 }
 
 function guiReadParameters()
 {
-// var guiSmoothShading = document.getElementById('smoothShading');
-// gSmoothShading = guiSmoothShading.checked;
+ var guiSmoothShading = document.getElementById('smoothShading');
+ gSmoothShading = guiSmoothShading.checked;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ gJuliaMode = guiJuliaMode.checked;
  RenderAgain();
 }
 
 function RenderAgain()
 {
  gDirty = true;
- if (gComplete)
-  setTimeout(Tick, 17);
 }
 
-var gJuliaDirty = false;
+var gMouseMoved = true;
 var gJuliaComplete = true;
-
-function StartJulia()
-{
- gJuliaDirty = true;
- if (gJuliaComplete)
-  setTimeout(TickJulia, 17);
-}
 
 function DrawLowResolution()
 {
@@ -504,19 +635,20 @@ function DrawLowResolution()
 function UpdateStats()
 {
  var statsdiv = document.getElementById('stats');
- statsdiv.innerHTML="X : "+gCanvasX+"<BR>Y : "+gCanvasY+"<BR>Zoom : "+gZoom; 
+ statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>Fractal parameters<BR>Mode : ";
+ if (gJuliaMode)
+  statsdiv.innerHTML+="Julia"
+  else
+  statsdiv.innerHTML+="Mandelbrot"
+ statsdiv.innerHTML+="<BR>X : "+gCanvasX+"<BR>Y : "+gCanvasY+"<BR>Zoom : "+gZoom; 
 }
 
-function TickJulia()
+function replaceURL()
 {
- if (gJuliaDirty)
+ if (window.history.replaceState)
  {
-  UpdateStats();
-  CalculateJulia();
-  gJuliaComplete = true;
-  gJuliaDirty = false;
+  window.history.replaceState({}, null, "mandelbrot.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom+"&m="+(gJuliaMode?"1":"0")+"&jx="+gJuliaX+"&jy="+gJuliaY);
  }
- DrawJulia();
 }
 
 function Tick()
@@ -528,14 +660,12 @@ function Tick()
   gProgressiveIndex = 0;
   gDirty=false;
   gComplete=false;
-  if (window.history.replaceState)
-  {
-   window.history.replaceState({}, null, "mandelbrot.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom);
-  }
+  replaceURL;
  }
  else
  {
-  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
+  if (!gComplete)
+{  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
   switch(gProgressiveLevel)
   {
    case 8:
@@ -560,20 +690,92 @@ function Tick()
     break;
    case 0.25:
     gProgressiveIndex++;
-	if (gProgressiveIndex>=64) {gComplete=true;}
+	if (gProgressiveIndex>=64) {gComplete=true;DrawMandelbrot();}
     break;
   }
- }
+ }}
  
-// if (!gComplete)
+ if (!gComplete)
   DrawMandelbrot();
 
- // next tick
- if (!gComplete)
-  setTimeout(Tick, 17);
+ if (document.getElementById("JuliaSelector").hidden == false)
+  TickJulia();
+
+ if (document.getElementById("OrbitViewer").hidden == false)
+  TickOrbit();
+
+ if (document.getElementById("Settings").hidden == false)
+  TickStats();
+
+ setTimeout(Tick, 17);
+}
+
+function TickJulia()
+{
+ if (gMouseMoved)
+ {
+  var jsdiv = document.getElementById("JuliaStats");
+  jsdiv.innerHTML="<BR>Current Mouse Position<BR>Canvas X = "+gCanvasX+"<BR>Canvas Y = "+gCanvasY+"<BR><BR>Click to set Julia params<BR>Julia X = "+gJuliaX+"<BR>Julia Y = "+gJuliaY;
+  CalculateJulia();
+  gJuliaComplete = true;
+  gJuliaDirty = false;
+  DrawJulia();
+ }
+}
+
+function TickOrbit()
+{
+ if (gMouseMoved)
+ {
+  gMouseMoved = false;
+  DrawOrbit();
+ }
+}
+
+function TickStats()
+{
+ if (gMouseMoved)
+ {
+  UpdateStats();
+  gMouseMoved = false;
+ }
+}
+
+function guiMenuVisibility(settings, julia, orbit)
+{
+ document.getElementById("Settings").hidden = !settings;
+ document.getElementById("JuliaSelector").hidden = !julia;
+ document.getElementById("OrbitViewer").hidden = !orbit;
+}
+
+function guiMenuSettings()
+{
+ guiMenuVisibility(true, false, false);
+}
+
+function guiMenuJuliaSelector()
+{
+ guiMenuVisibility(false, true, false);
+}
+
+function guiMenuOrbitViewer()
+{
+ guiMenuVisibility(false, false, true);
+}
+
+function guiMenuHide()
+{
+ guiMenuVisibility(false, false, false);
 }
 
 </SCRIPT>
+
+<STYLE>
+#Menu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:420px;height:40px;top:50px;left:50px;color:white;}
+#MenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
+#MenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
+div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+</STYLE>
 
 </HEAD>
 <BODY id="body">
@@ -581,21 +783,35 @@ function Tick()
 <DIV style="float: left;">
 <CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
 </DIV>
-<SPAN style="position:fixed;border-width:2px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:50;left:50;color:white;">
+
+<DIV id="Menu">
+<DIV id="MenuOpt" onclick="guiMenuSettings()">Settings</DIV>
+<DIV id="MenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>
+<DIV id="MenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>
+<DIV id="MenuOpt" onclick="guiMenuHide()">Hide</DIV>
+</DIV>
+
+<DIV id="Settings" class="Panel">
 <DIV id="stats">
 X : 20<BR>
 Y : 714<BR>
 Zoom : 3.1
 </DIV>
-<BR>
-<CANVAS style="canvas1" id="canvas2" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
-<BR>
-<CANVAS style="canvas1" id="canvas3" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
-<BR>
-
-
+<BR>Settings
+<BR><INPUT id="smoothShading" checked="true" type="checkbox" onchange="guiReadParameters()"> Smooth Shading</INPUT>
+<BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters()"> Julia Mode</INPUT>
 </DIV>
-</SPAN>
+
+<DIV id="JuliaSelector" class="Panel">
+<CANVAS style="canvas1" id="pickerCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+<DIV id="JuliaStats">
+</DIV>
+</DIV>
+
+<DIV id="OrbitViewer" class="Panel">
+<CANVAS style="canvas1" id="orbitCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+</DIV>
+
 
 <script>
 Initialise();
