@@ -21,6 +21,9 @@ var gProgressiveIndex = 0;
 var gProgressiveLevel = 16;
 var gSmoothShading = true;
 var gJuliaMode = false;
+var gAAEnabled = true;
+var gScaleColour = false;
+var gMaxIterations = 256;
 
 //////////////////////////COLOUR///////////////////////////////
 function colour(r, g, b)
@@ -312,6 +315,18 @@ function CalculateJulia()
 
 function DrawMandelbrot()
 {
+
+ var min=gMaxIterations;
+ var max=0;
+ if (gScaleColour)
+ {
+  for (i=0; i<gWidth*gHeight; i++)
+  {
+   if (mandelArray[i]<min) min=mandelArray[i];
+   if (mandelArray[i]>max) max=mandelArray[i];
+  }
+ }
+
  var canvas = document.getElementById('canvas1');
  if (canvas.getContext)
  {
@@ -327,6 +342,10 @@ function DrawMandelbrot()
    {
     var idx = (x+y*gWidth);
 	var m = mandelArray[idx];
+	if (gScaleColour)
+	{
+	 m = (mandelArray[idx]-min) * (256/(max-min));
+	}
     var col = gColourGradient.GetColour(m/256);
 	
 	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
@@ -607,6 +626,12 @@ function guiSetInitialParams()
  guiSmoothShading.checked = gSmoothShading;
  var guiJuliaMode = document.getElementById('juliaMode');
  guiJuliaMode.checked = gJuliaMode;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ guiAAEnabled.checked = gAAEnabled;
+ var guiScaleColour = document.getElementById('scaleColour');
+ guiScaleColour.checked = gScaleColour;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ guiMaxIterations.value = gMaxIterations;
 }
 
 function guiReadParameters()
@@ -615,6 +640,12 @@ function guiReadParameters()
  gSmoothShading = guiSmoothShading.checked;
  var guiJuliaMode = document.getElementById('juliaMode');
  gJuliaMode = guiJuliaMode.checked;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ gAAEnabled = guiAAEnabled.checked;
+ var guiScaleColour = document.getElementById('scaleColour');
+ gScaleColour = guiScaleColour.checked;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ gMaxIterations = guiMaxIterations.value;
  RenderAgain();
 }
 
@@ -682,7 +713,7 @@ function Tick()
     break;
    case 1:
     gProgressiveIndex++;
-	if (gProgressiveIndex>=64) {gProgressiveLevel=0.5;gProgressiveIndex=0;}
+	if (gProgressiveIndex>=64) {if (gAAEnabled) {gProgressiveLevel=0.5;gProgressiveIndex=0;} else {gComplete=true;DrawMandelbrot();}}
     break;
    case 0.5:
     gProgressiveIndex++;
@@ -775,6 +806,8 @@ function guiMenuHide()
 #MenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
 #MenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
 div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+.label {padding:2px; width:120px;float:left;}
+.input {padding:2px; width:120px;style="text-align:right;}
 </STYLE>
 
 </HEAD>
@@ -800,6 +833,9 @@ Zoom : 3.1
 <BR>Settings
 <BR><INPUT id="smoothShading" checked="true" type="checkbox" onchange="guiReadParameters()"> Smooth Shading</INPUT>
 <BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters()"> Julia Mode</INPUT>
+<BR><INPUT id="aaEnabled" type="checkbox" onchange="guiReadParameters()"> aaEnabled</INPUT>
+<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters()"> Scale Colour</INPUT>
+<BR><DIV class="label" >Max Iterations</DIV><INPUT id="maxIterations" class="input" onchange="guiReadParameters()"/></input>
 </DIV>
 
 <DIV id="JuliaSelector" class="Panel">
