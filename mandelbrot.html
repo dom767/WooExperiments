@@ -348,7 +348,7 @@ function DrawMandelbrot()
 	}
     var col = gColourGradient.GetColour(m/256);
 	
-	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+ 	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
 	{
 	 col = new colour(1,0.5,0);
 	}
@@ -369,7 +369,7 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
  var rZoom = 1 / gZoom;
  var progressive = progressiveLevel>1 ? progressiveLevel : 1;
  var antialias = progressiveLevel<1 ? 1/progressiveLevel : 1;
- for (y=Math.floor(rows*progressiveIndex*progressive); y<Math.floor(rows*progressive*(progressiveIndex+1)); y+=progressive)
+ for (y=Math.floor(rows*progressiveIndex); y<Math.floor(rows*(progressiveIndex+1)); y+=progressive)
    for (x=0; x<gWidth; x+=progressive)
    {
 	var sumIterations = 0;
