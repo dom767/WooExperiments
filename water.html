@@ -1,0 +1,169 @@
+<HTML>
+<HEAD>
+<TITLE>Water Simulation</TITLE>
+
+<STYLE>
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
+canvas1 {display:block;}
+div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+</STYLE>
+
+<SCRIPT>
+
+var gWaterPosition = new Array();
+var gWaterVelocity = new Array();
+var gWidth = 1024;
+var gHeight = 768;
+var gMouseX=0;
+var gMouseY=0;
+var gStop=false;
+
+function Initialise()
+{
+ Resize();
+ document.addEventListener("mousemove", MouseMove);
+ setTimeout(Tick, 17);
+}
+
+function Resize()
+{
+ gWidth = window.innerWidth;
+ gHeight = window.innerHeight;
+ var canvas = document.getElementById('canvas1');
+ canvas.width = gWidth;
+ canvas.height = gHeight;
+ 
+ gWaterPosition = new Array(Math.floor(gWidth/4)*Math.floor(gHeight/4));
+ gWaterVelocity = new Array(Math.floor(gWidth/4)*Math.floor(gHeight/4));
+
+ for (var y=0; y<gHeight/4; y++)
+  for (var x=0; x<gWidth/4; x++)
+  {
+   gWaterPosition[x+y*gWidth/4] = 0.5;
+   gWaterVelocity[x+y*gWidth/4] = 0;
+  }
+}
+
+function MouseMove(e)
+{
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ gMouseX = canvasX;
+ gMouseY = canvasY;
+}
+
+function CalculateSurface()
+{
+ gWaterPosition[Math.floor(gMouseX/4) + Math.floor(gMouseY/4)*Math.floor(gWidth/4)]=1;
+/* for (d=0; d<10; d++)
+ {
+  var dx = Math.floor(gWidth/4*Math.random());
+  var dy = Math.floor(gHeight/4*Math.random());
+  gWaterPosition[dx + dy*gWidth/4]=Math.random()>0.5 ? 1 : 0;
+ }*/
+ 
+ for (var y=0; y<gHeight/4; y++)
+  for (var x=0; x<gWidth/4; x++)
+  {
+   var xm1=x-1,xp1=x+1,ym1=y-1,yp1=y+1;
+   if (x==0) xm1=x;
+   if (x==Math.floor(gWidth/4)-1) xp1=x;
+   if (y==0) ym1=y;
+   if (y==Math.floor(gHeight/4)-1) yp1=y;
+   var dx = gWaterPosition[xp1+y*gWidth/4]+gWaterPosition[xm1+y*gWidth/4]-(gWaterPosition[x+y*gWidth/4]*2);
+   var dy = gWaterPosition[x+yp1*gWidth/4]+gWaterPosition[x+ym1*gWidth/4]-(gWaterPosition[x+y*gWidth/4]*2);
+   gWaterVelocity[x+y*gWidth/4] += 0.1*(dx+dy);
+   //gWaterVelocity[x+y*gWidth] *= 0.9;
+  }
+ for (var y=0; y<gHeight/4; y++)
+  for (var x=0; x<gWidth/4; x++)
+  {
+   var xm1=x-1,xp1=x+1,ym1=y-1,yp1=y+1;
+   if (x==0) xm1=x;
+   if (x==gWidth-1) xp1=x;
+   if (y==0) ym1=y;
+   if (y==gHeight-1) yp1=y;
+   var dx = xp1-xm1;
+   var dy = yp1-ym1;
+   gWaterPosition[x+y*gWidth/4] += 0.25*gWaterVelocity[x+y*gWidth/4];
+  }
+}
+
+function DrawSurface()
+{
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+ 
+  for (var y=0; y<gHeight/4; y++)
+   for (var x=0; x<gWidth/4; x++)
+   {
+    for (iy=0; iy<4; iy++)
+	 for (ix=0; ix<4; ix++)
+	 {
+	  var idx = (y*4+iy)*gWidth + (x*4+ix);
+      var height = gWaterPosition[x+y*Math.floor(gWidth/4)];
+	  imageData.data[4*idx] = height*255.99;
+      imageData.data[4*idx+1] = height*255.99;
+      imageData.data[4*idx+2] = height*255.99;
+      imageData.data[4*idx+3] = 255;   
+	 }
+   }
+  ctx.putImageData(imageData,0,0);
+ }
+}
+
+function Tick()
+{
+ CalculateSurface();
+ CalculateSurface();
+ DrawSurface();
+ if (!gStop)
+  setTimeout(Tick, 17);
+}
+
+function guiStopStart()
+{
+ if (gStop)
+ {
+  gStop = false;
+  var stopstart = document.getElementById('StopStart');
+  stopstart.innerHTML = "Stop Simulation";
+  setTimeout(Tick, 17);
+ }
+ else
+ {
+  gStop = true;
+  var stopstart = document.getElementById('StopStart');
+  stopstart.innerHTML = "Start Simulation";
+ }
+}
+
+</SCRIPT>
+
+</HEAD>
+
+<BODY>
+
+<DIV style="float: left;">
+<CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
+</DIV>
+
+<DIV id="Settings" class="Panel">
+<BUTTON id="StopStart" onclick="guiStopStart()" class="button">Stop Simulation</button>
+</DIV>
+
+<script>
+Initialise();
+</script>
+
+</BODY>
+
+</HTML>

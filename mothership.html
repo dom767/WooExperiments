@@ -1,0 +1,257 @@
+<HTML>
+<HEAD>
+<TITLE>Water Simulation</TITLE>
+
+<STYLE>
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
+canvas1 {display:block;}
+div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+</STYLE>
+
+<SCRIPT>
+
+var gStarfield = new Array();
+//var gWaterVelocity = new Array();
+var gWidth = 1024;
+var gStarfieldWidth;
+var gHeight = 768;
+var gMouseX=0;
+var gMouseY=0;
+var gStop=false;
+var gNumStars = 200;
+
+function Colour(r, g, b)
+{
+ this.mR=r;
+ this.mG=g;
+ this.mB=b;
+}
+
+function Star(x, y, speed, size)
+{
+this.mX = x;
+this.mY = y;
+this.mSpeed = speed;
+this.mSize = size;
+}
+
+function Initialise()
+{
+ Resize();
+ document.addEventListener("mousemove", MouseMove);
+ setTimeout(Tick, 17);
+}
+
+function Resize()
+{
+ gWidth = window.innerWidth;
+ gHeight = window.innerHeight;
+ var canvas = document.getElementById('canvas1');
+ canvas.width = gWidth;
+ canvas.height = gHeight;
+ gStarfieldWidth = Math.floor(gWidth * 1.1);
+ 
+ gStarfield = new Array(gStarfieldWidth*gHeight);
+ gStars = new Array();
+ 
+ for (var y=0; y<gHeight; y++)
+  for (var x=0; x<gStarfieldWidth; x++)
+  {
+   gStarfield[x+y*gStarfieldWidth] = 0;
+  }
+  
+ for (s=0; s<gNumStars; s++)
+ {
+  gStars[s] = new Star(Math.random(), Math.random(), (0.2+0.8*Math.random())*0.001, (0.2+0.8*Math.random()));
+ }
+}
+
+function MouseMove(e)
+{
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ gMouseX = canvasX;
+ gMouseY = canvasY;
+}
+
+function CalculateSurface()
+{
+}
+
+// draw 0->1
+function DrawPixelFloat(img, x, y, size)
+{
+ var ix = Math.floor(x*gWidth);
+ var xr = ((x*gWidth)-ix);
+ var iy = Math.floor(y*gHeight);
+ var yr = ((y*gHeight)-iy);
+ var starWeight = size*0.5;
+ 
+ img[ix+iy*gStarfieldWidth] += starWeight*(1-xr)*(1-yr);
+ img[ix+1+iy*gStarfieldWidth] += starWeight*xr*(1-yr);
+ img[ix+(iy+1)*gStarfieldWidth] += starWeight*(1-xr)*yr;
+ img[ix+1+(iy+1)*gStarfieldWidth] += starWeight*xr*yr;
+}
+
+function DrawPixel(imageData, x, y, col)
+{
+ var ix = Math.floor(x*gWidth);
+ var xr = ((x*gWidth)-ix);
+ var iy = Math.floor(y*gHeight);
+ var yr = ((y*gHeight)-iy);
+ 
+ factor = (1-xr)*(1-yr);
+ imageData.data[4*(ix+iy*gWidth)] = (1-factor)*imageData.data[4*(ix+iy*gWidth)] + 255.99*col.mR*factor;
+ imageData.data[4*(ix+iy*gWidth)+1] = (1-factor)*imageData.data[4*(ix+iy*gWidth)+1] + 255.99*col.mG*factor;
+ imageData.data[4*(ix+iy*gWidth)+2] = (1-factor)*imageData.data[4*(ix+iy*gWidth)+2] + 255.99*col.mB*factor;
+ factor = xr*(1-yr);
+ imageData.data[4*(ix+1+iy*gWidth)] = (1-factor)*imageData.data[4*(ix+1+iy*gWidth)] + 255.99*col.mR*factor;
+ imageData.data[4*(ix+1+iy*gWidth)+1] = (1-factor)*imageData.data[4*(ix+1+iy*gWidth)+1] + 255.99*col.mG*factor;
+ imageData.data[4*(ix+1+iy*gWidth)+2] = (1-factor)*imageData.data[4*(ix+1+iy*gWidth)+2] + 255.99*col.mB*factor;
+ factor = (1-xr)*yr;
+ imageData.data[4*(ix+(iy+1)*gWidth)] = (1-factor)*imageData.data[4*(ix+(iy+1)*gWidth)] + 255.99*col.mR*factor;
+ imageData.data[4*(ix+(iy+1)*gWidth)+1] = (1-factor)*imageData.data[4*(ix+(iy+1)*gWidth)+1] + 255.99*col.mG*factor;
+ imageData.data[4*(ix+(iy+1)*gWidth)+2] = (1-factor)*imageData.data[4*(ix+(iy+1)*gWidth)+2] + 255.99*col.mB*factor;
+ factor = xr*yr;
+ imageData.data[4*(ix+1+(iy+1)*gWidth)] = (1-factor)*imageData.data[4*(ix+1+(iy+1)*gWidth)] + 255.99*col.mR*factor;
+ imageData.data[4*(ix+1+(iy+1)*gWidth)+1] = (1-factor)*imageData.data[4*(ix+1+(iy+1)*gWidth)+1] + 255.99*col.mG*factor;
+ imageData.data[4*(ix+1+(iy+1)*gWidth)+2] = (1-factor)*imageData.data[4*(ix+1+(iy+1)*gWidth)+2] + 255.99*col.mB*factor;
+}
+
+// x, y in screenspace (float)
+function DrawFilledCircle(imageData, x, y, width, col)
+{
+ var rad = width;
+ while(rad>1/gWidth)
+ {
+  var circ = Math.floor(Math.PI*rad*gWidth);
+  var p = Math.random()/circ;
+  for (i=0; i<circ; i++)
+  {
+   DrawPixel(imageData, x+rad*Math.cos(p), y+rad*Math.sin(p), col);
+   p += Math.PI*2/circ;
+  }
+  rad-=1/gWidth;
+ }
+ DrawPixel(imageData, x, y, new Colour(1,0,0));
+}
+
+function DrawStars(imageData)
+{
+ for (s=0; s<gNumStars; s++)
+ {
+  DrawPixelFloat(gStarfield, gStars[s].mX, gStars[s].mY, gStars[s].mSize);
+ }
+}
+
+function DrawVisibleStars(imageData)
+{
+ for (s=0; s<gNumStars; s++)
+ {
+  var width = gStars[s].mSize*5;
+  DrawFilledCircle(imageData, gStars[s].mX, gStars[s].mY, width*0.001, new Colour(1,0,0));
+ }
+}
+
+function MoveStars()
+{
+ for (s=0; s<gNumStars; s++)
+ {
+  gStars[s].mX += gStars[s].mSpeed;
+  if (gStars[s].mX>1.1) gStars[s].mX-=1.1;
+ }
+}
+
+function SmearStars()
+{
+ for (y=0; y<gHeight; y++)
+  for (x=0; x<gStarfieldWidth; x++)
+  {
+   idx = x+y*gStarfieldWidth;
+   var smearamount = 0.0001*gWidth;
+   if (smearamount>1) smearamount=1;
+   if (x<=gStarfieldWidth-1)
+    gStarfield[idx] = 0.99 * (gStarfield[idx] * (1-smearamount) + gStarfield[idx+1] * smearamount);
+  } 
+}
+
+function DrawStarfield()
+{
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+  
+  DrawStars(imageData);
+ 
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+    idx = x+y*gWidth;
+    sidx = x+y*gStarfieldWidth;
+    var val = gStarfield[sidx];
+	imageData.data[4*idx] = val*255.99;
+    imageData.data[4*idx+1] = val*255.99;
+    imageData.data[4*idx+2] = val*255.99;
+    imageData.data[4*idx+3] = 255;
+   }
+  
+  DrawVisibleStars(imageData);
+
+  ctx.putImageData(imageData,0,0);
+ }
+}
+
+function Tick()
+{
+ MoveStars();
+ SmearStars();
+ DrawStarfield();
+ if (!gStop)
+  setTimeout(Tick, 17);
+}
+
+function guiStopStart()
+{
+ if (gStop)
+ {
+  gStop = false;
+  var stopstart = document.getElementById('StopStart');
+  stopstart.innerHTML = "Stop Simulation";
+  setTimeout(Tick, 17);
+ }
+ else
+ {
+  gStop = true;
+  var stopstart = document.getElementById('StopStart');
+  stopstart.innerHTML = "Start Simulation";
+ }
+}
+
+</SCRIPT>
+
+</HEAD>
+
+<BODY>
+
+<DIV style="float: left;">
+<CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
+</DIV>
+
+<DIV id="Settings" class="Panel">
+<BUTTON id="StopStart" onclick="guiStopStart()" class="button">Stop Simulation</button>
+</DIV>
+
+<script>
+Initialise();
+</script>
+
+</BODY>
+
+</HTML>
