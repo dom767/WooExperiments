@@ -23,7 +23,7 @@ var gSmoothShading = true;
 var gJuliaMode = false;
 var gAAEnabled = true;
 var gScaleColour = false;
-var gMaxIterations = 256;
+var gMaxIterations = 32;
 
 //////////////////////////COLOUR///////////////////////////////
 function colour(r, g, b)
@@ -229,7 +229,7 @@ function DrawOrbit()
   var mag2 = 0;
   orbitPoints[orbitIndex++] = new vec2(newx, newy);	
 
-  for (var i=0; i<256 & mag2 < 4; i++)
+  for (var i=0; i<gMaxIterations & mag2 < 4; i++)
   {
    oldx = newx;
    oldy = newy;
@@ -243,7 +243,7 @@ function DrawOrbit()
   for (var i=0; i<orbitIndex; i++)
   {
    ctx.beginPath();
-   var col = gColourGradient.GetColour(i/256);
+   var col = gColourGradient.GetColour(i/gMaxIterations);
    ctx.strokeStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
    ctx.fillStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
    ctx.arc(200 + 100*orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY, 5, 0, Math.PI*2);
@@ -273,7 +273,7 @@ function DrawJulia()
    {
     var idx = (x+y*400);
 	var m = juliaArray[idx];
-    var col = gColourGradient.GetColour(m/256);
+    var col = gColourGradient.GetColour(m/gMaxIterations);
 	
 	imageData.data[4*(x+y*400)] = col.mR*255.99;
     imageData.data[4*(x+y*400)+1] = col.mG*255.99;
@@ -299,7 +299,7 @@ function CalculateJulia()
 	var oldy = 0;
 	var mag2 = 0;
 	
-    for (var i=0; i<256 & mag2 < 4; i++)
+    for (var i=0; i<gMaxIterations & mag2 < 4; i++)
   	{
 	 oldx = newx;
 	 oldy = newy;
@@ -309,12 +309,13 @@ function CalculateJulia()
 	}
 	
 	var iterations = i;
-	juliaArray[x+y*400] = clamp(iterations,0,256);
+	juliaArray[x+y*400] = clamp(iterations,0,gMaxIterations);
    }
 }
 
 function DrawMandelbrot()
 {
+
  var min=gMaxIterations;
  var max=0;
  if (gScaleColour)
@@ -343,11 +344,11 @@ function DrawMandelbrot()
 	var m = mandelArray[idx];
 	if (gScaleColour)
 	{
-	 m = (mandelArray[idx]-min) * (256/(max-min));
+	 m = (mandelArray[idx]-min) * (gMaxIterations/(max-min));
 	}
-    var col = gColourGradient.GetColour(m/256);
+    var col = gColourGradient.GetColour(m/gMaxIterations);
 	
- 	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
 	{
 	 col = new colour(1,0.5,0);
 	}
@@ -384,7 +385,7 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
 	  var oldy = 0;
 	  var mag2 = 0;
 	
-      for (var i=0; i<256 & mag2 < 4; i++)
+      for (var i=0; i<gMaxIterations & mag2 < 256*256; i++)
   	  {
 	   oldx = newx;
 	   oldy = newy;
@@ -403,8 +404,10 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
 	
 	  var iterations = i;
 
-      if (gSmoothShading && mag2>=4)
-	   iterations -= (Math.log(Math.log(Math.sqrt(mag2))) / Math.log(2)) - 1;
+      if (gSmoothShading && mag2>=256*256)
+	  {
+	   iterations += 4 - (Math.log(Math.log(Math.sqrt(mag2))) / Math.log(2));
+	  }
 	   
 	  sumIterations += iterations;
 	 }
@@ -412,7 +415,7 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
     for (py = 0; py<progressive & y+py<gHeight; py++)
 	 for (px=0; px<progressive & x+px<gWidth; px++)
 	 {
-	  mandelArray[x+px+(gWidth*(y+py))] = clamp(sumIterations, 0, 256);
+	  mandelArray[x+px+(gWidth*(y+py))] = clamp(sumIterations, 0, gMaxIterations);
 	 }
    }
 }
