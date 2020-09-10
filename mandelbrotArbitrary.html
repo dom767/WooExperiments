@@ -1,0 +1,1087 @@
+<HTML>
+<HEAD>
+<STYLE>
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
+canvas1 {display:block;}
+</STYLE>
+<SCRIPT>
+
+var limit=1000000; // must be pow10 for print() to work
+var digits=Math.log(limit)/Math.log(10.0);
+
+function negate(val)
+{
+ // change the sign bit
+ val[10] = -val[10];
+}
+  
+function signp(a)
+{
+ // is this positive?
+ return (a[10] >= 0);
+}
+
+var gCarry = 0; // this sucks ass, but can't be arsed to use a return object
+
+function roundOff(x)
+{
+ gCarry = Math.floor(x / limit);
+ return x - gCarry * limit;
+}
+
+function add(ret, a1, a2)
+{
+ // local copies of the numbers
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+
+ var subtract = 1;
+ 
+ // set return to be the sign of arg1
+ ret[10] = val1[10];
+
+ if (signp(val1)!=signp(val2)) // if both -ve, just add them and fiddle the sign later
+ {
+  subtract = -1;
+ }
+
+ gCarry = 0;
+ var keepVal;
+
+ for (i=0; i<10; i++)
+ {
+  keepVal = roundOff(val1[i] + subtract*val2[i] + gCarry);
+
+  if(keepVal < 0) // can only occur when one or both values are -ve
+  {
+   keepVal += limit;
+   gCarry--;
+  }
+
+  ret[i] = keepVal;
+ }
+
+ // crossed the zero boundary (eek)
+ if (gCarry<0)
+ {
+  ret[0]--; // hrmph
+  for (i=0; i<10; i++)
+  {
+   ret[i] = (limit-1)-ret[i];
+  }
+  ret[10] *= -1;
+ }
+}
+
+function mul(ret, a1, a2)
+{
+ // build a copy of our values
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+
+ // the result is positive right?
+ var outSign = 1;
+
+ if (!signp(val1)) outSign *= -1; // or maybe not
+ if (!signp(val2)) outSign *= -1; // or maybe
+
+ var lenProd = (10-1)*2+1;
+ var prod = new Array(lenProd);
+ for (i=0; i<lenProd; i++) {prod[i]=0;} // zero the product
+
+ // multiply all the individial numbers together O(x^2) :(
+ for (i=0; i<10; i++)
+ {
+  for (j=0; j<10; j++)
+  {
+   prod[i+j] += val1[i] * val2[j];
+  }
+ }
+
+ gCarry = 0;
+ var clip = lenProd - 10;
+ var keepVal = 0;
+ 
+ for (i=0; i<clip; i++)
+ {
+  keepVal = roundOff(prod[i] + gCarry);
+  prod[i] = keepVal;
+ }
+
+ // round up
+ if (prod[clip-1]>=limit/2)
+ {
+  gCarry += Math.floor((prod[clip-1]-limit/2) / limit);
+ }
+
+ for (i=clip; i<lenProd; i++)
+ {
+  keepVal = roundOff(prod[i] + gCarry);
+  prod[i] = keepVal;
+ }
+
+ for (i=0; i<lenProd - clip; i++)
+ {
+  ret[i] = prod[i+clip];
+ }
+
+ // set the output sign
+ ret[10] = outSign;
+}
+
+function assign(ret, val)
+{
+ for (i=0; i<11; i++)
+ {
+  ret[i] = val[i];
+ }
+}
+
+function greater(a1, a2)
+{
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+   
+ if (val1[10]<0 && val2[10]>0) // quick tests
+  return false;
+ if (val1[10]>0 && val2[10]<0) // quick tests
+  return true;
+
+ var neg = false;
+ if (val1[10]<0 && val2[10]<0) // if both negative, negate them
+ {
+  negate(val1);
+  negate(val2);
+  neg=true;
+ }
+
+ // lets see if the values differ and early return
+ for (i=9; i>=0; i--)
+ {
+  if (val1[i]>val2[i])
+   return !neg;
+  if (val1[i]<val2[i])
+   return neg;
+ }
+
+ // ffs, identical
+ return false;
+}
+
+function load(ret, val)
+{
+ var negative = val<0;
+ if (negative) val = - val;
+   
+ for (i=9; i>=0; i--)
+ {
+  fCurr = Math.floor(val);
+  ret[i] = fCurr;
+  val -= parseFloat(fCurr);
+  val *= limit;
+ }
+
+ ret[10] = negative ? -1 : 1;
+}
+  
+function toString(val)
+{
+ var string = "";
+ if (!signp(val)) string +="-";
+ string += val[9]+".";
+ for (i=8; i>=0; i--)
+ {
+  numstring = String(val[i]);
+  while (numstring.length<digits) numstring = "0"+numstring;
+  string += numstring;
+ }
+ return string;
+}
+  
+function toFloat(val)
+{
+ var floatVal = 0;
+ for (i=0; i<9; i++)
+ {
+  floatVal += val[i];
+  floatVal /= limit;
+ }
+ floatVal += val[9];
+ floatVal *= val[10];
+ return floatVal;
+}
+
+var stop=false;
+var gZoom=0.5;
+var gPosX=0;
+var gPosY=0;
+var mandelArray=new Array();
+var juliaArray=new Array();
+var gWidth = window.innerWidth;
+var gHeight = window.innerHeight;
+
+// progressive renderer
+var gComplete = true;
+var gProgressiveIndex = 0;
+var gProgressiveLevel = 16;
+var gSmoothShading = true;
+var gJuliaMode = false;
+var gAAEnabled = true;
+var gScaleColour = false;
+var gMaxIterations = 32;
+
+//////////////////////////COLOUR///////////////////////////////
+function colour(r, g, b)
+{
+ this.mR = r;
+ this.mG = g;
+ this.mB = b;
+}
+
+//////////////////////////VEC2/////////////////////////////////
+function vec2(x, y)
+{
+ this.mX = x;
+ this.mY = y;
+}
+
+//////////////////////////COLOURKEYGFRAME///////////////////////////////
+function ColourKeyframe(pos, col)
+{
+ this.mColour = col;
+ this.mPosition = pos;
+}
+
+//////////////////////////COLOURGRADIENT///////////////////////////////
+function ColourGradient()
+{
+ this.mColourKeyframe = new Array();
+ this.mColourKeyframe[0] = new ColourKeyframe(0.0, new colour(0,0,0));
+ this.mColourKeyframe[1] = new ColourKeyframe(1.0, new colour(1,1,1));
+}
+
+ColourGradient.prototype.AddKeyframe = function()
+{
+ var position = arguments[0];
+ var colour = arguments[1];
+
+ for (i=0; i<this.mColourKeyframe.length; i++)
+ {
+   var start = this.mColourKeyframe[i].mPosition;
+   var end = 1;
+   if (i<this.mColourKeyframe.length-1)
+   {
+    end = this.mColourKeyframe[i+1].mPosition;
+   }
+  if (position>start && position<=end)
+  {
+   var numShuffle = this.mColourKeyframe.length - (i+1);
+   this.mColourKeyframe[this.mColourKeyframe.length] = this.mColourKeyframe[this.mColourKeyframe.length-1];
+   for (j=0; j<numShuffle; j++)
+   {
+    this.mColourKeyframe[(this.mColourKeyframe.length-1)-j] = this.mColourKeyframe[((this.mColourKeyframe.length-1)-j)-1] 
+   }
+   this.mColourKeyframe[i+1] = new ColourKeyframe(position, colour);
+  }
+ }
+}
+
+ColourGradient.prototype.GetColour = function()
+{
+ var position = arguments[0];
+ for (i=0; i<this.mColourKeyframe.length; i++)
+ {
+   var start = this.mColourKeyframe[i].mPosition;
+   var end = 1;
+   if (i<this.mColourKeyframe.length-1)
+   {
+    end = this.mColourKeyframe[i+1].mPosition;
+   }
+  if (position>=start && position<=end)
+  {
+   var delta = (position-start) / (end-start);
+   var r = this.mColourKeyframe[i+1].mColour.mR * delta + this.mColourKeyframe[i].mColour.mR * (1-delta);
+   var g = this.mColourKeyframe[i+1].mColour.mG * delta + this.mColourKeyframe[i].mColour.mG * (1-delta);
+   var b = this.mColourKeyframe[i+1].mColour.mB * delta + this.mColourKeyframe[i].mColour.mB * (1-delta);
+   return new colour(r, g, b);
+  }
+ }
+}
+
+var gColourGradient = new ColourGradient();
+
+function clamp(value, min, max)
+{
+ if (value<=min) return min;
+ if (value>=max) return max;
+ return value;
+}
+
+function ReadQueryString()
+{
+ var urlParams;
+ var match, pl= /\+/g, search = /([^&=]+)=?([^&]*)/g;
+ var decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+ var query  = window.location.search.substring(1);
+
+ urlParams = {};
+ while (match = search.exec(query))
+  urlParams[decode(match[1])] = decode(match[2]);
+  
+ if (urlParams["x"] != null)
+  gPosX = parseFloat(urlParams["x"]);
+ if (urlParams["y"] != null)
+  gPosY = parseFloat(urlParams["y"]);
+ if (urlParams["z"] != null)
+  gZoom = parseFloat(urlParams["z"]);
+ if (urlParams["m"] != null)
+  gJuliaMode = (parseInt(urlParams["m"])>0 ? true : false);
+ if (urlParams["jx"] != null)
+  gJuliaX = parseFloat(urlParams["jx"]);
+ if (urlParams["jy"] != null)
+  gJuliaY = parseFloat(urlParams["jy"]);
+}
+
+function SetPalette(index)
+{
+ var palette = [[[0,0,0],[0,0.5,1],[1,1,1],[1,0.5,0],[0,0,0],[1,1,1]],
+ [[1,1,1],[0,0.5,1],[1,1,1],[1,0.5,0],[1,1,1],[0,0,0]],
+ [[1,0,0],[0.8,0.8,0.1],[0.05,0.8,0.5],[0.05,0.1,0.7],[0.05,0.8,0.6],[0,0,0]],
+ [[0,0,0],[1,1,1],[0,0,0],[1,1,1],[0,0,0],[1,1,1]],
+ [[0,0,0],[0,1,0],[0.3,0.95,1],[0.95,1,0.35],[1,0.2,0],[0,0,0]]];
+ 
+ gColourGradient.mColourKeyframe[0].mColour = new colour(palette[index][0][0], palette[index][0][1], palette[index][0][2])
+ gColourGradient.mColourKeyframe[1].mColour = new colour(palette[index][1][0], palette[index][1][1], palette[index][1][2])
+ gColourGradient.mColourKeyframe[2].mColour = new colour(palette[index][2][0], palette[index][2][1], palette[index][2][2])
+ gColourGradient.mColourKeyframe[3].mColour = new colour(palette[index][3][0], palette[index][3][1], palette[index][3][2])
+ gColourGradient.mColourKeyframe[4].mColour = new colour(palette[index][4][0], palette[index][4][1], palette[index][4][2])
+ gColourGradient.mColourKeyframe[5].mColour = new colour(palette[index][5][0], palette[index][5][1], palette[index][5][2])
+}
+
+function Initialise()
+{
+ ReadQueryString();
+ for (y=0; y<gHeight; y++)
+  for (x=0; x<gWidth; x++)
+   {
+    mandelArray[(x+gWidth*y)]=Math.random()*255.99;
+   }
+ gColourGradient.AddKeyframe(0.6, new colour(1,0.5,0));
+ gColourGradient.AddKeyframe(0.4, new colour(1,1,1));
+ gColourGradient.AddKeyframe(0.2, new colour(0,0.5,1));
+ gColourGradient.AddKeyframe(0.8, new colour(0,0,0));
+ RenderAgain();
+ guiSetInitialParams();
+ document.getElementById("canvas1").addEventListener("mousedown", canvasMouseDown);
+ document.getElementById("body").addEventListener("mouseup", MouseUp);
+ document.addEventListener("keydown", KeyDown);
+ document.addEventListener("mouseleave", MouseLeave);
+ document.addEventListener("mousemove", MouseMove);
+ document.addEventListener("mousewheel", MouseWheel);
+ window.addEventListener("resize", ResizeWindow);
+ ResizeWindow();
+ guiMenuVisibility(false, false, false);
+ setTimeout(Tick, 17);
+}
+
+function GetRows(progressiveLevel)
+{
+ switch(progressiveLevel)
+ {
+  case 16:
+   return gHeight;
+   break;
+  case 8:
+   return gHeight;
+   break;
+  case 4:
+   return gHeight/4;
+   break;
+  case 2:
+   return gHeight/16;
+   break;
+  case 1:
+   return gHeight/64;
+   break;
+  case 0.5:	
+   return gHeight/64;
+   break;
+  case 0.25:	
+   return gHeight/64;
+   break;
+ }
+ return gHeight;
+}
+
+function DrawOrbit()
+{
+ var canvas = document.getElementById('orbitCanvas');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,400,300);
+
+  var orbitPoints = new Array();
+  var orbitIndex = 0;
+
+  var mx = gCanvasX;
+  var my = gCanvasY;
+  var newx = 0;
+  var newy = 0;
+  if (gJuliaMode) {newx += mx;newy+=my;}
+  var oldx = 0;
+  var oldy = 0;
+  var mag2 = 0;
+  orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+
+  for (var i=0; i<gMaxIterations & mag2 < 4; i++)
+  {
+   oldx = newx;
+   oldy = newy;
+   newx = oldx * oldx - oldy * oldy + mx;
+   newy = 2 * oldx * oldy + my;
+   if (gJuliaMode) {newx += gJuliaX-mx;newy+=gJuliaY-my;}
+   orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+   mag2 = newx*newx + newy*newy;
+  }
+
+  for (var i=0; i<orbitIndex; i++)
+  {
+   ctx.beginPath();
+   var col = gColourGradient.GetColour(i/gMaxIterations);
+   ctx.strokeStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.fillStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.arc(200 + 100*orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY, 5, 0, Math.PI*2);
+   ctx.fill();
+   if (i+1<orbitIndex)
+   {
+    ctx.beginPath();
+    ctx.moveTo(200 + 100 * orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY);
+    ctx.lineTo(200 + 100 * orbitPoints[i+1].mX, 150 + 100*orbitPoints[i+1].mY);
+	ctx.stroke();
+   }
+   
+  }
+ }
+}
+
+function DrawJulia()
+{
+ var canvas = document.getElementById('pickerCanvas');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, 400, 300);
+
+  for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var idx = (x+y*400);
+	var m = juliaArray[idx];
+    var col = gColourGradient.GetColour(m/gMaxIterations);
+	
+	imageData.data[4*(x+y*400)] = col.mR*255.99;
+    imageData.data[4*(x+y*400)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*400)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*400)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+
+function CalculateJulia()
+{
+ var rZoom = 2;
+ for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var mx = rZoom * (x-(400/2)) / (400/2)
+    var my = rZoom * (y-(300/2)) / (400/2)
+    var newx = mx;
+  	var newy = my;
+	var oldx = 0;
+	var oldy = 0;
+	var mag2 = 0;
+	
+    for (var i=0; i<gMaxIterations & mag2 < 4; i++)
+  	{
+	 oldx = newx;
+	 oldy = newy;
+	 newx = oldx * oldx - oldy * oldy + gCanvasX;
+	 newy = 2 * oldx * oldy + gCanvasY;
+	 mag2 = newx*newx + newy*newy;
+	}
+	
+	var iterations = i;
+	juliaArray[x+y*400] = clamp(iterations,0,gMaxIterations);
+   }
+}
+
+function DrawMandelbrot()
+{
+
+ var min=gMaxIterations;
+ var max=0;
+ if (gScaleColour)
+ {
+  for (i=0; i<gWidth*gHeight; i++)
+  {
+   if (mandelArray[i]<min) min=mandelArray[i];
+   if (mandelArray[i]>max) max=mandelArray[i];
+  }
+ }
+
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+
+  ctx.clearRect(0,0,gWidth,gHeight);
+  
+  rows = GetRows(gProgressiveLevel);
+ 
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+    var idx = (x+y*gWidth);
+	var m = mandelArray[idx];
+	if (gScaleColour)
+	{
+	 m = (mandelArray[idx]-min) * (gMaxIterations/(max-min));
+	}
+    var col = gColourGradient.GetColour(m/gMaxIterations);
+	
+	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+	{
+	 col = new colour(1,0.5,0);
+	}
+	
+	imageData.data[4*(x+y*gWidth)] = col.mR*255.99;
+    imageData.data[4*(x+y*gWidth)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*gWidth)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+
+function CalculateMandelbrot(progressiveLevel, progressiveIndex)
+{
+ var rows=GetRows(progressiveLevel);
+ var rZoom = 1 / gZoom;
+ var progressive = progressiveLevel>1 ? progressiveLevel : 1;
+ var antialias = progressiveLevel<1 ? 1/progressiveLevel : 1;
+ for (y=Math.floor(rows*progressiveIndex); y<Math.floor(rows*(progressiveIndex+1)); y+=progressive)
+   for (x=0; x<gWidth; x+=progressive)
+   {
+	var sumIterations = 0;
+	for (ay=0; ay<antialias; ay++)
+	 for (ax=0; ax<antialias; ax++)
+	 {
+      var mx = gPosX + rZoom * ((ax*1/antialias)+x-(gWidth/2)) / (gWidth/2)
+      var my = gPosY + rZoom * ((ay*1/antialias)+y-(gHeight/2)) / (gWidth/2)
+	  var mxarb = new Array(10);load(mxarb, mx);
+	  var myarb = new Array(10);load(myarb, my);
+	  var newxarb = new Array(10);load(newxarb, 0.0);
+	  var newyarb = new Array(10);load(newyarb, 0.0);
+	  var juliaXarb = new Array(10);load(juliaXarb, gJuliaX);
+	  var juliaYarb = new Array(10);load(juliaYarb, gJuliaY);
+	  if (gJuliaMode) {add(newxarb, newxarb, mxarb);add(newyarb, newyarb, myarb);}
+	  var oldxarb = new Array(10);load(oldxarb, 0.0);
+	  var oldyarb = new Array(10);load(oldyarb, 0.0);
+	  var mag2arb = new Array(10);load(mag2arb, 0.0);
+	  var orbitLimitarb = new Array(10);load(orbitLimitarb, 16.0*16.0);
+	  
+      for (var i=0; i<gMaxIterations; i++)
+  	  {
+	   assign(oldxarb, newxarb);
+	   assign(oldyarb, newyarb);
+
+       var oldx2arb = new Array(10);
+       var oldy2arb = new Array(10);
+	   mul(oldx2arb, oldxarb, oldxarb);
+	   mul(oldy2arb, oldyarb, oldyarb);
+	   assign(newxarb, oldy2arb);
+	   negate(newxarb);
+	   if (gJuliaMode) add(newxarb, newxarb, juliaXarb);
+	   else add(newxarb, newxarb, mxarb);
+	   add(newxarb, newxarb, oldx2arb);
+	   
+	   load(newyarb, 2.0);
+	   mul(newyarb, newyarb, oldxarb);
+	   mul(newyarb, newyarb, oldyarb);
+	   if (gJuliaMode) add(newyarb, newyarb, juliaYarb);
+	   else add(newyarb, newyarb, myarb);
+	   
+	   var newx2arb = new Array(10);
+	   var newy2arb = new Array(10);
+	   mul(newx2arb, newxarb, newxarb);
+	   mul(newy2arb, newyarb, newyarb);
+	   add(mag2arb, newx2arb, newy2arb);
+	   
+       if (greater(mag2arb, orbitLimitarb)) break;
+	  }
+	
+	  var iterations = i;
+
+      if (gSmoothShading && greater(mag2arb, orbitLimitarb))
+	  {
+	   iterations += 3 - (Math.log(Math.log(Math.sqrt(toFloat(mag2arb)))) / Math.log(2));
+	  }
+	   
+	  sumIterations += iterations;
+	 }
+	sumIterations /= (antialias*antialias);
+    for (py = 0; py<progressive & y+py<gHeight; py++)
+	 for (px=0; px<progressive & x+px<gWidth; px++)
+	 {
+	  mandelArray[x+px+(gWidth*(y+py))] = clamp(sumIterations, 0, gMaxIterations);
+	 }
+   }
+}
+
+function guiDraw()
+{
+ RenderAgain();
+}
+
+var gDragStartX, gDragStartY;
+var gMouseDown = false;
+var gJuliaX=0;
+var gJuliaY=0;
+var gCanvasX=0;
+var gCanvasY=0;
+
+function canvasMouseDown(e)
+{
+ gMouseDown = true;
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ if (gJuliaMode == false &&
+   (document.getElementById("JuliaSelector").hidden == false
+   || document.getElementById("OrbitViewer").hidden == false))
+ {
+  replaceURL();
+  gJuliaX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+  gJuliaY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+  gMouseMoved = true;
+ }
+
+ gDragStartX = canvasX;
+ gDragStartY = canvasY;
+ console.log("Mouse Down : " + canvasX + ", " + canvasY);
+}
+
+function MouseUp(e)
+{
+ gMouseDown = false;
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ console.log("Mouse Up : " + canvasX + ", " + canvasY);
+}
+
+function MouseMove(e)
+{
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ gCanvasX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+ gCanvasY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+ gMouseMoved = true;
+
+ if (gMouseDown && (gDragStartX!=canvasX || gDragStartY!=canvasY))
+ {
+  gPosX -= (canvasX - gDragStartX)/((gWidth*gZoom)/2);
+  gPosY -= (canvasY - gDragStartY)/((gWidth*gZoom)/2);
+  gDragStartX = canvasX;
+  gDragStartY = canvasY;
+  RenderAgain();
+ }
+}
+
+function MouseWheel(e)
+{
+ var delta = Math.sign(event.deltaY);
+
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ if (delta>0)
+ {// zoom out
+  gPosX -= 0.47*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY -= 0.47*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  SetZoom(gZoom / 1.3);
+  RenderAgain();
+ }
+ else
+ {// zoom in
+  SetZoom(gZoom * 1.3);
+  gPosX += (1.3*0.5)*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY += (1.3*0.5)*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  RenderAgain();
+ }
+  
+}
+
+function KeyDown(e)
+{
+ if (e.shiftKey)
+ {
+  if (e.keyCode == '38')
+  {// up
+   SetZoom(gZoom * 1.1);
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   SetZoom(gZoom / 1.1);
+   RenderAgain();
+  }
+ }
+ else
+ {
+  if (e.keyCode == '38')
+  {// up
+   gPosY -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   gPosY += 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '37')
+  {// left
+   gPosX -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '39')
+  {// right
+   gPosX += 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '74')
+  {
+   var guiJuliaMode = document.getElementById('juliaMode');
+   gJuliaMode = !gJuliaMode;
+   guiJuliaMode.checked = gJuliaMode;
+   RenderAgain();
+  }
+  if (e.keyCode == '49')
+  {
+   SetPalette(0);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '50')
+  {
+   SetPalette(1);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '51')
+  {
+   SetPalette(2);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '52')
+  {
+   SetPalette(3);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '53')
+  {
+   SetPalette(4);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+ }
+}
+
+function MouseLeave(e)
+{
+ console.log("Mouse Leave");
+ if (gMouseDown)
+  MouseUp(e);
+}
+
+function SetZoom(zoom)
+{
+ gZoom = zoom;
+}
+
+function ResizeWindow()
+{
+ console.log("ResizeWindow (width="+window.innerWidth+", height="+window.innerHeight+")");
+ var canvas = document.getElementById('canvas1');
+ canvas.width = window.innerWidth;
+ gWidth = window.innerWidth;
+ canvas.height = window.innerHeight;
+ gHeight = window.innerHeight;
+ gMouseMoved=true;
+ RenderAgain();
+}
+
+function guiSetInitialParams()
+{
+ var guiSmoothShading = document.getElementById('smoothShading');
+ guiSmoothShading.checked = gSmoothShading;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ guiJuliaMode.checked = gJuliaMode;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ guiAAEnabled.checked = gAAEnabled;
+ var guiScaleColour = document.getElementById('scaleColour');
+ guiScaleColour.checked = gScaleColour;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ guiMaxIterations.value = gMaxIterations;
+}
+
+function guiReadParameters()
+{
+ var guiSmoothShading = document.getElementById('smoothShading');
+ gSmoothShading = guiSmoothShading.checked;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ gJuliaMode = guiJuliaMode.checked;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ gAAEnabled = guiAAEnabled.checked;
+ var guiScaleColour = document.getElementById('scaleColour');
+ gScaleColour = guiScaleColour.checked;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ gMaxIterations = guiMaxIterations.value;
+ RenderAgain();
+}
+
+function RenderAgain()
+{
+ gDirty = true;
+}
+
+var gMouseMoved = true;
+var gJuliaComplete = true;
+
+function DrawLowResolution()
+{
+ CalculateMandelbrot(16);
+ DrawMandelbrot();
+}
+
+function UpdateStats()
+{
+ var statsdiv = document.getElementById('stats');
+ statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>Fractal parameters<BR>Mode : ";
+ if (gJuliaMode)
+  statsdiv.innerHTML+="Julia"
+  else
+  statsdiv.innerHTML+="Mandelbrot"
+ statsdiv.innerHTML+="<BR>X : "+gCanvasX+"<BR>Y : "+gCanvasY+"<BR>Zoom : "+gZoom; 
+}
+
+function replaceURL()
+{
+ if (window.history.replaceState)
+ {
+  window.history.replaceState({}, null, "mandelbrotArbitrary.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom+"&m="+(gJuliaMode?"1":"0")+"&jx="+gJuliaX+"&jy="+gJuliaY);
+ }
+}
+
+function Tick()
+{
+ if (gDirty)
+ {
+  CalculateMandelbrot(16, 0);
+  gProgressiveLevel = 8;
+  gProgressiveIndex = 0;
+  gDirty=false;
+  gComplete=false;
+  replaceURL();
+ }
+ else
+ {
+  if (!gComplete)
+{  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
+  switch(gProgressiveLevel)
+  {
+   case 8:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=1) {gProgressiveLevel=4;gProgressiveIndex=0;}
+    break;
+   case 4:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=4) {gProgressiveLevel=2;gProgressiveIndex=0;}
+    break;
+   case 2:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=16) {gProgressiveLevel=1;gProgressiveIndex=0;}
+    break;
+   case 1:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {if (gAAEnabled) {gProgressiveLevel=0.5;gProgressiveIndex=0;} else {gComplete=true;DrawMandelbrot();}}
+    break;
+   case 0.5:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {gProgressiveLevel=0.25;gProgressiveIndex=0;}
+    break;
+   case 0.25:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {gComplete=true;DrawMandelbrot();}
+    break;
+  }
+ }}
+ 
+ if (!gComplete)
+  DrawMandelbrot();
+
+ if (document.getElementById("JuliaSelector").hidden == false)
+  TickJulia();
+
+ if (document.getElementById("OrbitViewer").hidden == false)
+  TickOrbit();
+
+ if (document.getElementById("Settings").hidden == false)
+  TickStats();
+
+ setTimeout(Tick, 17);
+}
+
+function TickJulia()
+{
+ if (gMouseMoved)
+ {
+  var jsdiv = document.getElementById("JuliaStats");
+  jsdiv.innerHTML="<BR>Current Mouse Position<BR>Canvas X = "+gCanvasX+"<BR>Canvas Y = "+gCanvasY+"<BR><BR>Click to set Julia params<BR>Julia X = "+gJuliaX+"<BR>Julia Y = "+gJuliaY;
+  CalculateJulia();
+  gJuliaComplete = true;
+  gJuliaDirty = false;
+  DrawJulia();
+ }
+}
+
+function TickOrbit()
+{
+ if (gMouseMoved)
+ {
+  gMouseMoved = false;
+  DrawOrbit();
+ }
+}
+
+function TickStats()
+{
+ if (gMouseMoved)
+ {
+  UpdateStats();
+  gMouseMoved = false;
+ }
+}
+
+function guiMenuVisibility(settings, julia, orbit)
+{
+ document.getElementById("Settings").hidden = !settings;
+ document.getElementById("JuliaSelector").hidden = !julia;
+ document.getElementById("OrbitViewer").hidden = !orbit;
+}
+
+function guiMenuSettings()
+{
+ guiMenuVisibility(true, false, false);
+}
+
+function guiMenuJuliaSelector()
+{
+ guiMenuVisibility(false, true, false);
+}
+
+function guiMenuOrbitViewer()
+{
+ guiMenuVisibility(false, false, true);
+}
+
+function guiMenuHide()
+{
+ guiMenuVisibility(false, false, false);
+}
+
+</SCRIPT>
+
+<STYLE>
+#Menu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:420px;height:40px;top:50px;left:50px;color:white;}
+#MenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
+#MenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
+div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+.label {padding:2px; width:120px;float:left;}
+.input {padding:2px; width:120px;style="text-align:right;}
+</STYLE>
+
+</HEAD>
+<BODY id="body">
+
+<DIV style="float: left;">
+<CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
+</DIV>
+
+<DIV id="Menu">
+<DIV id="MenuOpt" onclick="guiMenuSettings()">Settings</DIV>
+<DIV id="MenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>
+<DIV id="MenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>
+<DIV id="MenuOpt" onclick="guiMenuHide()">Hide</DIV>
+</DIV>
+
+<DIV id="Settings" class="Panel">
+<DIV id="stats">
+X : 20<BR>
+Y : 714<BR>
+Zoom : 3.1
+</DIV>
+<BR>Settings
+<BR><INPUT id="smoothShading" checked="true" type="checkbox" onchange="guiReadParameters()"> Smooth Shading</INPUT>
+<BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters()"> Julia Mode</INPUT>
+<BR><INPUT id="aaEnabled" type="checkbox" onchange="guiReadParameters()"> aaEnabled</INPUT>
+<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters()"> Scale Colour</INPUT>
+<BR><DIV class="label" >Max Iterations</DIV><INPUT id="maxIterations" class="input" onchange="guiReadParameters()"/></input>
+</DIV>
+
+<DIV id="JuliaSelector" class="Panel">
+<CANVAS style="canvas1" id="pickerCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+<DIV id="JuliaStats">
+</DIV>
+</DIV>
+
+<DIV id="OrbitViewer" class="Panel">
+<CANVAS style="canvas1" id="orbitCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+</DIV>
+
+
+<script>
+Initialise();
+</script>
+</BODY>
+</HTML>

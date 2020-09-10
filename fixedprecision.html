@@ -1,0 +1,320 @@
+<HTML>
+<HEAD>
+
+<SCRIPT>
+
+/* Very simple fixed precision arithmetic implementation
+
+all numbers are stored in 11 values
+0 = smallest fractional element
+1 = next smallest
+.
+.
+.
+8 = largest fractional element
+9 = whole number element
+10 = sign (-1 = negative, +1 = positive)
+
+i.e.
+
+[10]*[9] . [8][7][6][5][4][3][2][1][0]
+
+*/
+  
+var limit=1000000; // must be pow10 for print() to work
+var digits=Math.log(limit)/Math.log(10.0);
+
+function negate(val)
+{
+ // change the sign bit
+ val[10] = -val[10];
+}
+  
+function signp(a)
+{
+ // is this positive?
+ return (a[10] >= 0);
+}
+
+var gCarry = 0; // this sucks ass, but can't be arsed to use a return object
+
+function roundOff(x)
+{
+ gCarry = Math.floor(x / limit);
+ return x - gCarry * limit;
+}
+
+function add(ret, a1, a2)
+{
+ // local copies of the numbers
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+
+ var subtract = 1;
+ 
+ // set return to be the sign of arg1
+ ret[10] = val1[10];
+
+ if (signp(val1)!=signp(val2)) // if both -ve, just add them and fiddle the sign later
+ {
+  subtract = -1;
+ }
+
+ gCarry = 0;
+ var keepVal;
+
+ for (i=0; i<10; i++)
+ {
+  keepVal = roundOff(val1[i] + subtract*val2[i] + gCarry);
+
+  if(keepVal < 0) // can only occur when one or both values are -ve
+  {
+   keepVal += limit;
+   gCarry--;
+  }
+
+  ret[i] = keepVal;
+ }
+
+ // crossed the zero boundary (eek)
+ if (gCarry<0)
+ {
+  ret[0]--; // hrmph
+  for (i=0; i<10; i++)
+  {
+   ret[i] = (limit-1)-ret[i];
+  }
+  ret[10] *= -1;
+ }
+}
+
+function mul(ret, a1, a2)
+{
+ // build a copy of our values
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+
+ // the result is positive right?
+ var outSign = 1;
+
+ if (!signp(val1)) outSign *= -1; // or maybe not
+ if (!signp(val2)) outSign *= -1; // or maybe
+
+ var lenProd = (10-1)*2+1;
+ var prod = new Array(lenProd);
+ for (i=0; i<lenProd; i++) {prod[i]=0;} // zero the product
+
+ // multiply all the individial numbers together O(x^2) :(
+ for (i=0; i<10; i++)
+ {
+  for (j=0; j<10; j++)
+  {
+   prod[i+j] += val1[i] * val2[j];
+  }
+ }
+
+ gCarry = 0;
+ var clip = lenProd - 10;
+ var keepVal = 0;
+ 
+ for (i=0; i<clip; i++)
+ {
+  keepVal = roundOff(prod[i] + gCarry);
+  prod[i] = keepVal;
+ }
+
+ // round up
+ if (prod[clip-1]>=limit/2)
+ {
+  gCarry += Math.floor((prod[clip-1]-limit/2) / limit);
+ }
+
+ for (i=clip; i<lenProd; i++)
+ {
+  keepVal = roundOff(prod[i] + gCarry);
+  prod[i] = keepVal;
+ }
+
+ for (i=0; i<lenProd - clip; i++)
+ {
+  ret[i] = prod[i+clip];
+ }
+
+ // set the output sign
+ ret[10] = outSign;
+}
+
+function assign(ret, val)
+{
+ for (i=0; i<11; i++)
+ {
+  ret[i] = val[i];
+ }
+}
+
+function greater(a1, a2)
+{
+ var val1 = new Array();
+ assign(val1, a1);
+ var val2 = new Array();
+ assign(val2, a2);
+   
+ if (val1[10]<0 && val2[10]>0) // quick tests
+  return false;
+ if (val1[10]>0 && val2[10]<0) // quick tests
+  return true;
+
+ var neg = false;
+ if (val1[10]<0 && val2[10]<0) // if both negative, negate them
+ {
+  negate(val1);
+  negate(val2);
+  neg=true;
+ }
+
+ // lets see if the values differ and early return
+ for (i=9; i>=0; i--)
+ {
+  if (val1[i]>val2[i])
+   return !neg;
+  if (val1[i]<val2[i])
+   return neg;
+ }
+
+ // ffs, identical
+ return false;
+}
+
+function load(ret, val)
+{
+ var negative = val<0;
+ if (negative) val = - val;
+   
+ for (i=9; i>=0; i--)
+ {
+  fCurr = Math.floor(val);
+  ret[i] = fCurr;
+  val -= parseFloat(fCurr);
+  val *= limit;
+ }
+
+ ret[10] = negative ? -1 : 1;
+}
+  
+function toString(val)
+{
+ var string = "";
+ if (!signp(val)) string +="-";
+ string += val[9]+".";
+ for (i=8; i>=0; i--)
+ {
+  numstring = String(val[i]);
+  while (numstring.length<digits) numstring = "0"+numstring;
+  string += numstring;
+ }
+ return string;
+}
+  
+function toFloat(val)
+{
+ var floatVal = 0;
+ for (i=0; i<9; i++)
+ {
+  floatVal += val[i];
+  floatVal /= limit;
+ }
+ floatVal += val[9];
+ floatVal *= val[10];
+ return floatVal;
+}
+
+
+
+// UNIT TESTS
+  
+function testsign(val)
+{
+ var arb = new Array(11);
+ load(arb, val);
+ console.log("Value : " + toString(arb) + ", positive : " + signp(arb));
+}
+
+function testgreater(val)
+{
+ var three = new Array(11);load(three, 3.0);
+ var minusthree = new Array(11);load(minusthree, -3);
+ var minussix = new Array(11);load(minussix, -6);
+ var six = new Array(11);load(six, 6);
+ var arb1 = new Array(11);
+ load(arb1, val);
+ console.log("value : " + toString(arb1));
+ console.log("greater than 6 : " + greater(arb1, six));
+ console.log("greater than 3 : " + greater(arb1, three));
+ console.log("greater than -3 : " + greater(arb1, minusthree));
+ console.log("greater than -6 : " + greater(arb1, minussix));
+}
+
+function testmultiply(val1, val2)
+{
+ var arb1 = new Array(11);load(arb1, val1);
+ var arb2 = new Array(11);load(arb2, val2);
+ var res = new Array(11);
+ console.log(val1 + " * " + val2 + " = " + val1*val2);
+ mul(res, arb1, arb2);
+ console.log(toString(arb1) + " * " + toString(arb2) + " = " + toString(res));
+}
+
+function testadd(val1, val2)
+{
+ var arb1 = new Array(11);load(arb1, val1);
+ var arb2 = new Array(11);load(arb2, val2);
+ var res = new Array(11);
+ console.log(val1 + " + " + val2 + " = " + (parseFloat(val1)+parseFloat(val2)));
+ add(res, arb1, arb2);
+ console.log(toString(arb1) + " + " + toString(arb2) + " = " + toString(res));
+}
+
+function test()
+{
+ // sign tests
+ testsign(1.0);
+ testsign(0.0);
+ testsign(-1.0);
+
+ // greater than tests
+ testgreater(6.442222222222222);
+ testgreater(3.0003);
+ testgreater(3.0000003);
+ testgreater(-3.0003);
+ testgreater(0.0);
+ testgreater(6.0003);
+
+ // multiply tests
+ testmultiply(3.0003, 1);
+ testmultiply(3.0003, 6);
+ testmultiply(3.0003, -6);
+ testmultiply(-3.0003, 6);
+ testmultiply(-3.0003, -6);
+ testmultiply(-3.0003, 0.0000000001);
+ testmultiply(Math.PI, Math.PI);
+ 
+ // add tests
+ testadd(Math.PI, 1.2345678912345);
+ testadd(-Math.PI, 1.2345678912345);
+ testadd(-Math.PI, 4.2345678912345);
+ testadd(Math.PI, -1.2345678912345);
+ testadd(Math.PI, -4.2345678912345);
+ testadd(-Math.PI, -4.2345678912345);
+}
+
+</SCRIPT>
+
+</HEAD>
+<BODY id="body">
+<SCRIPT>test();</SCRIPT>
+</BODY>
+</HTML>
