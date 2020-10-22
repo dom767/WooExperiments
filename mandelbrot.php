@@ -1,3 +1,4 @@
+<?php /* Template Name: Mandelbrot Renderer */ ?>
 <HTML>
 <HEAD>
 <STYLE>
