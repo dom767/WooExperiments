@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>3D Scatter Plot</title>
+    <style>
+      body { margin: 0; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <script src="https://threejs.org/build/three.js"></script>
+    <script>
+      var scene = new THREE.Scene();
+      var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      var renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Add a light so we can see the points
+      var light = new THREE.PointLight(0xffffff, 1, 0);
+      light.position.set(50, 50, 50);
+      scene.add(light);
+
+      function mandelbulbIter(x, y, z, power) {
+        var r = Math.sqrt(x*x + y*y + z*z);
+        var theta = Math.acos(z/r);
+        var phi = Math.atan2(y,x);
+        var newR = Math.pow(r, power);
+        var newTheta = theta * power;
+        var newPhi = phi * power;
+        return [
+          newR * Math.sin(newTheta) * Math.cos(newPhi),
+          newR * Math.sin(newTheta) * Math.sin(newPhi),
+          newR * Math.cos(newTheta)
+        ];
+      }
+
+      function buildscene(x, y, z)
+	  {
+	   scene.clear();
+      var power = 8;
+      var coordinates = [[x, y, z]];
+      for (var i = 0; i < 200; i++) {
+        var result = mandelbulbIter(x, y, z, power);
+        x = result[0] + 0.41;
+        y = result[1] + 0.41;
+        z = result[2] + 0.41;
+        coordinates.push([x, z, y]);
+      }
+
+	  const points = [];
+
+
+      points.push( new THREE.Vector3( coordinates[0][0]*10, coordinates[0][1]*10, coordinates[0][2]*10 ) );
+        var geometry = new THREE.SphereGeometry(0.06, 32, 32);
+        var material = new THREE.MeshBasicMaterial({color: new THREE.Color('hsl(180, 100%, 50%)')});
+        var sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(coordinates[0][0]*10, coordinates[0][1]*10, coordinates[0][2]*10); // Scale the positions for visibility
+        scene.add(sphere);
+		
+		// For each coordinate, create a sphere and add it to the scene
+      coordinates.forEach(function(coordinate, index) {
+        points.push( new THREE.Vector3( coordinate[0]*10, coordinate[1]*10, coordinate[2]*10 ) );
+        var geometry = new THREE.SphereGeometry(0.03, 32, 32);
+        var material = new THREE.MeshBasicMaterial({color: new THREE.Color('hsl(' + (index/coordinates.length*360) + ', 100%, 50%)')});
+        var sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(coordinate[0]*10, coordinate[1]*10, coordinate[2]*10); // Scale the positions for visibility
+        scene.add(sphere);
+      });
+      const linegeometry = new THREE.BufferGeometry().setFromPoints( points );
+      var material = new THREE.MeshBasicMaterial({color: new THREE.Color('hsl(90, 100%, 50%)')});
+	  const line = new THREE.Line( linegeometry, material );
+      scene.add( line );
+	  }
+	  
+//	  sphere.position.set(0,0,0);
+	  buildscene(0.41, 0.41, 0.41);
+	//  scene.add(sphere);
+
+      camera.position.x = 0;
+      camera.position.y = -7;
+	  camera.position.z = 7;
+	  
+	  camera.lookAt(4.1,4.1,4.1);
+	  
+
+      var theta = 0;
+      var animate = function () {
+        var val = 0.31+Math.sin(theta*0.1719)*0.23;
+		buildscene(val,val,val);
+
+	    camera.position.x = 4.1 + Math.sin(theta)*4.1;
+		camera.position.y = 4;
+		camera.position.z = 4.1 + Math.cos(theta)*4.1;
+		theta += 0.01;
+  	  camera.lookAt(4.1,4.1,4.1);
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+      };
+
+      animate();
+    </script>
+  </body>
+</html>

@@ -4,11 +4,11 @@
 <STYLE>
 * {font-family:verdana;font-size:14;margin:0;padding:0;}
 canvas1 {display:block;}
-div.MBMenu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:420px;height:40px;top:50px;left:50px;color:white;}
+div.MBMenu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:525px;height:40px;top:50px;left:50px;color:white;}
 .MBMenu2 {position:fixed;font-size:12px;color:#AAA;padding:0px;border-width:0px;background-color:rgba(1,0,1,0.8);width:220px;height:36px;text-align:center;top:41px;right:50px;padding:10px;}
 .MBMenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
 .MBMenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
-.MBPanel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+.MBPanel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:505px;top:90px;left:50px;color:white;}
 .MBLabel {padding:2px;width:120px;float:left;}
 .MBInput {padding:2px;width:120px;style="text-align:right";}
 a {color:#FFF;font-size:16px;text-decoration:none;}
@@ -39,6 +39,7 @@ var gJuliaMode = false;
 var gAAEnabled = true;
 var gScaleColour = false;
 var gMaxIterations = 256;
+var gPower = 2;
 var gFullScreen = true;
 var gCanvasHeight = 720;
 var gCanvasWidth = 1024;
@@ -58,6 +59,124 @@ function vec2(x, y)
 {
  this.mX = x;
  this.mY = y;
+}
+
+//////////////////////////VEC4/////////////////////////////////
+function vec4(x, y, z, w)
+{
+ this.mX = x;
+ this.mY = y;
+ this.mZ = z;
+ this.mW = w;
+}
+
+//////////////////////////VEC3/////////////////////////////////
+function vec3(x, y, z)
+{
+ this.mX = x;
+ this.mY = y;
+ this.mZ = z;
+}
+
+vec3.prototype.sub = function(v) {
+  return new vec3(this.mX - v.mX, this.mY - v.mY, this.mZ - v.mZ);
+};
+
+vec3.prototype.normalise = function() {
+  const length = Math.sqrt(this.mX * this.mX + this.mY * this.mY + this.mZ * this.mZ);
+  if (length > 0) {
+    this.mX /= length;
+    this.mY /= length;
+    this.mZ /= length;
+  }
+  return this;
+};
+
+vec3.prototype.cross = function(v) {
+  return new vec3(
+    this.mY * v.mZ - this.mZ * v.mY,
+    this.mZ * v.mX - this.mX * v.mZ,
+    this.mX * v.mY - this.mY * v.mX
+  );
+};
+
+vec3.prototype.dot = function(v) {
+  return this.mX * v.mX + this.mY * v.mY + this.mZ * v.mZ;
+};
+
+//////////////////////////MAT4/////////////////////////////////
+function mat4(m00,m01,m02,m03,m10,m11,m12,m13,m20,m21,m22,m23,m30,m31,m32,m33)
+{
+ this.m = [
+    [m00, m01, m02, m03],
+    [m10, m11, m12, m13],
+    [m20, m21, m22, m23],
+    [m30, m31, m32, m33]
+  ];
+}
+
+mat4.prototype.MakeIdentity = function()
+{
+ this.m[0][0] = this.m[1][1] = this.m[2][2] = this.m[3][3] = 1.0;
+ this.m[0][1] = this.m[0][2] = this.m[0][3] = 0.0;
+ this.m[1][0] = this.m[1][2] = this.m[1][3] = 0.0;
+ this.m[2][0] = this.m[2][1] = this.m[2][3] = 0.0;
+ this.m[3][0] = this.m[3][1] = this.m[3][2] = 0.0;
+}
+
+mat4.prototype.MakeLookAt = function(from, to, up) {
+  const zAxis = (to.sub(from)).normalise();
+  const xAxis = (up.cross(zAxis)).normalise();
+  const yAxis = zAxis.cross(xAxis);
+
+  this.m[0][0] = xAxis.mX;
+  this.m[1][0] = xAxis.mY;
+  this.m[2][0] = xAxis.mZ;
+  this.m[3][0] = -xAxis.dot(from);
+
+  this.m[0][1] = yAxis.mX;
+  this.m[1][1] = yAxis.mY;
+  this.m[2][1] = yAxis.mZ;
+  this.m[3][1] = -yAxis.dot(from);
+
+  this.m[0][2] = zAxis.mX;
+  this.m[1][2] = zAxis.mY;
+  this.m[2][2] = zAxis.mZ;
+  this.m[3][2] = -zAxis.dot(from);
+
+  this.m[0][3] = 0.0;
+  this.m[1][3] = 0.0;
+  this.m[2][3] = 0.0;
+  this.m[3][3] = 1;
+}
+
+mat4.prototype.MakeProject = function(fovy, aspect, near, far, framebufferWidth, framebufferHeight) {
+ const f = 1.0 / Math.tan(fovy / 2);
+ const nf = 1.0 / (near - far);
+
+ this.MakeIdentity();
+
+ this.m[0][0] = (f / aspect);
+ this.m[1][1] = f;
+ this.m[2][2] = (far + near) * nf;
+ this.m[2][3] = -1.0;
+ this.m[3][2] = 2.0 * far * near * nf;
+ this.m[3][3] = 0.0;
+}
+
+mat4.prototype.mul = function(v) {
+  const x = this.m[0][0] * v.mX + this.m[1][0] * v.mY + this.m[2][0] * v.mZ + this.m[3][0];
+  const y = this.m[0][1] * v.mX + this.m[1][1] * v.mY + this.m[2][1] * v.mZ + this.m[3][1];
+  const z = this.m[0][2] * v.mX + this.m[1][2] * v.mY + this.m[2][2] * v.mZ + this.m[3][2];
+  return new vec3(x, y, z);
+}
+
+mat4.prototype.mulvec4 = function(v) {
+  const x = this.m[0][0] * v.mX + this.m[1][0] * v.mY + this.m[2][0] * v.mZ + this.m[3][0];
+  const y = this.m[0][1] * v.mX + this.m[1][1] * v.mY + this.m[2][1] * v.mZ + this.m[3][1];
+  const z = this.m[0][2] * v.mX + this.m[1][2] * v.mY + this.m[2][2] * v.mZ + this.m[3][2];
+  const w = this.m[0][3] * v.mX + this.m[1][3] * v.mY + this.m[2][3] * v.mZ + this.m[3][3];
+  return new vec4(x, y, z, w);
 }
 
 //////////////////////////COLOURKEYGFRAME///////////////////////////////
@@ -226,13 +345,174 @@ function GetRows(progressiveLevel)
    return gHeight/64;
    break;
   case 0.5:	
-   return gHeight/64;
+   return gHeight/128;
    break;
   case 0.25:	
-   return gHeight/64;
+   return gHeight/256;
    break;
  }
  return gHeight;
+}
+
+// render buffer for the 3d orbit map viewer
+var gOrbitDataWidth = -1;
+var gOrbitDataHeight = -1;
+var gOrbitData;
+var gOrbitMapIterations = 0;
+var gOrbitIterX = -1;
+var gOrbitIterY = -1;
+
+// simple drawpixel function for accumulation on the orbit map viewer
+function DrawPixel(x, y, value)
+{
+ var ix = Math.floor(x);
+ var iy = Math.floor(y);
+
+ if (x>=-1 && x<=gOrbitDataWidth && y>=-1 && y<=gOrbitDataHeight)
+ {
+  var width = gOrbitDataWidth;
+  var height = gOrbitDataHeight;
+  
+  dx = x-ix;
+  dy = y-iy;
+  
+  if (ix>0 && iy>0) gOrbitData[iy*width + ix] += value * (1-dx) * (1-dy);
+  if (ix+1<width && iy>0) gOrbitData[iy*width + ix + 1] += value * dx * (1-dy);
+  if (ix>0 && iy+1<height) gOrbitData[(iy+1)*width + ix] += value * (1-dx) * dy;
+  if (ix+1<width && iy+1<height) gOrbitData[(iy+1)*width + ix + 1] += value * dx * dy;
+ }
+}
+
+// animation step angle
+var theta = 0;
+
+function DrawOrbitMap()
+{
+ var canvas = document.getElementById('orbitMapCanvas');
+ var orbitWidth = canvas.width;
+ var orbitHeight = canvas.height;
+
+ if (gOrbitMapIterations>256)
+  return;
+ 
+ if (gOrbitDataWidth==-1)
+ {
+  gOrbitDataWidth = orbitWidth;
+  gOrbitDataHeight = orbitHeight;
+  gOrbitData = new Array(orbitWidth*orbitHeight);
+  gOrbitMapIterations = 0;
+  gOrbitIterX = new Array(128*128);
+  gOrbitIterY = new Array(128*128);
+ }
+
+ // blank it out
+ if (gOrbitMapIterations==0)
+ {
+  for (y=0; y<orbitHeight; y++)
+   for (x=0; x<orbitWidth; x++)
+   {
+    gOrbitData[x+y*orbitWidth] = 0.0;
+   }
+ }
+
+ // animate
+ //theta += 0.01;
+ if (theta>Math.PI*2) theta = 0.0;
+
+ var viewmatrix = new mat4();
+ viewmatrix.MakeLookAt(new vec3(1.2*Math.sin(theta), 0.5, -1.2*Math.cos(theta)), new vec3(0,0,0), new vec3(0,1,0));
+ var projmatrix = new mat4();
+ projmatrix.MakeProject(20, orbitWidth/orbitHeight, 0.1, 100, gOrbitDataWidth, gOrbitDataHeight);
+
+ var rZoom = 0.5 / gZoom;
+ var width = 64;
+
+ for (y=0; y<64; y++)
+  for (x=0; x<64; x++)
+  {
+   var mx = gPosX + rZoom * (x-(width/2)) / (width/2)
+   var my = gPosY + rZoom * (y-(width/2)) / (width/2)
+   var oldx = 0;
+   var oldy = 0;
+   var newx = mx;
+   var newy = my;
+   if (gOrbitMapIterations>0)
+   {
+    newx = gOrbitIterX[x+y*64];
+    newy = gOrbitIterY[x+y*64];
+   }
+   var mag2 = newx*newx + newy*newy;
+
+   for (var i=0; i<2 & mag2 < 2*2; i++)
+   {
+    oldx = newx;
+    oldy = newy;
+ 
+    if (gPower==2)
+    {
+     if (gJuliaMode)
+     {
+      newx = oldx * oldx - oldy * oldy + gJuliaX;
+      newy = 2 * oldx * oldy + gJuliaY;
+     }
+     else
+     {
+      newx = oldx * oldx - oldy * oldy + mx;
+      newy = 2 * oldx * oldy + my;
+     }
+    }
+    else
+    {
+     if (gJuliaMode) {newx=gJuliaX;newy=gJuliaY;}
+     else {newx=mx;newy=my;}
+     var r = Math.sqrt(mag2);
+     var angle = Math.atan(oldy/oldx);
+     newx += Math.pow(r, gPower)*Math.cos(angle*gPower);
+     newy += Math.pow(r, gPower)*Math.sin(angle*gPower);
+    }
+
+    mag2 = newx*newx + newy*newy;
+
+    if(mag2<4)
+    {
+     mandelpos = new vec3(((width-x)-width*0.5) / (width*0.5), mag2*0.5, ((width-y)-width*0.5) / (width*0.5));
+
+     transformedpos = viewmatrix.mul(mandelpos);
+     homogeneousvec = projmatrix.mulvec4(transformedpos);
+     homogeneousvec.mX /= homogeneousvec.mW;
+     homogeneousvec.mY /= homogeneousvec.mW;
+     homogeneousvec.mZ /= homogeneousvec.mW;
+     rasterpos = new vec3(homogeneousvec.mX*gOrbitDataWidth*0.5 + gOrbitDataWidth*0.5, homogeneousvec.mY*gOrbitDataHeight*0.5 + gOrbitDataHeight*0.5, 1);
+     if (homogeneousvec.mZ>0) DrawPixel(rasterpos.mX, rasterpos.mY, homogeneousvec.mZ);
+    }
+   }
+   
+   gOrbitIterX[x+y*64] = newx;
+   gOrbitIterY[x+y*64] = newy;
+  }
+ 
+ gOrbitMapIterations++;
+
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gOrbitDataWidth, gOrbitDataHeight);
+
+  for (y=0; y<gOrbitDataHeight; y++)
+   for (x=0; x<gOrbitDataWidth; x++)
+   {
+    var idx = (x+y*gOrbitDataWidth);
+    var val = gOrbitData[idx]*128/Math.sqrt(gOrbitMapIterations);
+	if (val>255) val=255;
+    var col = gColourGradient.GetColour(val/255);
+	
+	imageData.data[4*(x+y*500)] = col.mR*255.99;
+    imageData.data[4*(x+y*500)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*500)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*500)+3] = 255;
+   }
+
+  ctx.putImageData(imageData,0,0); }
 }
 
 function DrawOrbit()
@@ -309,19 +589,19 @@ function DrawJulia()
  if (canvas.getContext)
  {
   var ctx = canvas.getContext('2d');
-  var imageData = ctx.getImageData(0, 0, 400, 300);
+  var imageData = ctx.getImageData(0, 0, 500, 300);
 
   for (y=0; y<300; y++)
-   for (x=0; x<400; x++)
+   for (x=0; x<500; x++)
    {
-    var idx = (x+y*400);
+    var idx = (x+y*500);
 	var m = juliaArray[idx];
     var col = gColourGradient.GetColour(m/gMaxIterations);
 	
-	imageData.data[4*(x+y*400)] = col.mR*255.99;
-    imageData.data[4*(x+y*400)+1] = col.mG*255.99;
-    imageData.data[4*(x+y*400)+2] = col.mB*255.99;
-    imageData.data[4*(x+y*400)+3] = 255;
+	imageData.data[4*(x+y*500)] = col.mR*255.99;
+    imageData.data[4*(x+y*500)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*500)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*500)+3] = 255;
     
    }
    ctx.putImageData(imageData,0,0);
@@ -332,27 +612,39 @@ function CalculateJulia()
 {
  var rZoom = 2;
  for (y=0; y<300; y++)
-   for (x=0; x<400; x++)
+   for (x=0; x<500; x++)
    {
-    var mx = rZoom * (x-(400/2)) / (400/2)
-    var my = rZoom * (y-(300/2)) / (400/2)
+    var mx = rZoom * (x-(500/2)) / (500/2)
+    var my = rZoom * (y-(300/2)) / (500/2)
     var newx = mx;
   	var newy = my;
 	var oldx = 0;
 	var oldy = 0;
-	var mag2 = 0;
+	var mag2 = newx*newx + newy*newy;
 	
     for (var i=0; i<gMaxIterations & mag2 < 4; i++)
   	{
 	 oldx = newx;
 	 oldy = newy;
-	 newx = oldx * oldx - oldy * oldy + gCanvasX;
-	 newy = 2 * oldx * oldy + gCanvasY;
+	   if (gPower==2)
+	   {
+	    newx = oldx * oldx - oldy * oldy + gCanvasX;
+		newy = 2 * oldx * oldy + gCanvasY;
+	   }
+	   else
+	   {
+	    newx=gCanvasX;newy=gCanvasY;
+		var r = Math.sqrt(mag2);
+		var theta = Math.atan(oldy/oldx);
+		newx += Math.pow(r, gPower)*Math.cos(theta*gPower);
+		newy += Math.pow(r, gPower)*Math.sin(theta*gPower);
+		
+	   }
 	 mag2 = newx*newx + newy*newy;
 	}
 	
 	var iterations = i;
-	juliaArray[x+y*400] = clamp(iterations,0,gMaxIterations);
+	juliaArray[x+y*500] = clamp(iterations,0,gMaxIterations);
    }
 }
 
@@ -422,17 +714,18 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
 	 {
       var mx = gPosX + rZoom * ((ax*1/antialias)+x-(gWidth/2)) / (gWidth/2)
       var my = gPosY + rZoom * ((ay*1/antialias)+y-(gHeight/2)) / (gWidth/2)
-  	  var newx = 0;
-  	  var newy = 0;
-	  if (gJuliaMode) {newx += mx;newy+=my;}
 	  var oldx = 0;
 	  var oldy = 0;
-	  var mag2 = 0;
+  	  var newx = mx;
+  	  var newy = my;
+	  var mag2 = newx*newx + newy*newy;
 	
       for (var i=0; i<gMaxIterations & mag2 < 256*256; i++)
   	  {
 	   oldx = newx;
 	   oldy = newy;
+	   if (gPower==2)
+	   {
 	   if (gJuliaMode)
 	   {
 	    newx = oldx * oldx - oldy * oldy + gJuliaX;
@@ -443,6 +736,17 @@ function CalculateMandelbrot(progressiveLevel, progressiveIndex)
 	    newx = oldx * oldx - oldy * oldy + mx;
 	    newy = 2 * oldx * oldy + my;
   	   }
+	   }
+	   else
+	   {
+	    if (gJuliaMode) {newx=gJuliaX;newy=gJuliaY;}
+		else {newx=mx;newy=my;}
+		var r = Math.sqrt(mag2);
+		var theta = Math.atan(oldy/oldx);
+		newx += Math.pow(r, gPower)*Math.cos(theta*gPower);
+		newy += Math.pow(r, gPower)*Math.sin(theta*gPower);
+		
+	   }
 	   mag2 = newx*newx + newy*newy;
 	  }
 	
@@ -696,6 +1000,8 @@ function guiSetInitialParams()
  guiScaleColour.checked = gScaleColour;
  var guiMaxIterations = document.getElementById('maxIterations');
  guiMaxIterations.value = gMaxIterations;
+ var guiPower = document.getElementById('power');
+ guiPower.value = gPower;
  var guiFullScreen = document.getElementById('fullScreen');
  guiFullScreen.checked = gFullScreen;
  var guiWidth = document.getElementById('width');
@@ -720,6 +1026,8 @@ function guiReadParameters(resize, rerender)
  gScaleColour = guiScaleColour.checked;
  var guiMaxIterations = document.getElementById('maxIterations');
  gMaxIterations = parseInt(guiMaxIterations.value);
+ var guiPower = document.getElementById('power');
+ gPower = parseFloat(guiPower.value);
  var guiColourOffset = document.getElementById('colourOffset');
  gColourOffset = parseFloat(guiColourOffset.value);
  var guiColourMultiplier = document.getElementById('colourMultiplier');
@@ -775,7 +1083,7 @@ function replaceURL()
  {
   url = window.location.href.split('/').pop().replace(/\#(.*?)$/, '').replace(/\?(.*?)$/, '');
   url = url.split('.');  // separates filename and extension
-  window.history.replaceState({}, null, "mandelbrot.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom+"&m="+(gJuliaMode?"1":"0")+"&jx="+gJuliaX+"&jy="+gJuliaY);
+  if (!window.location.origin.includes("file://")) window.history.replaceState({}, null, url[0]+"?x="+gPosX+"&y="+gPosY+"&z="+gZoom+"&m="+(gJuliaMode?"1":"0")+"&jx="+gJuliaX+"&jy="+gJuliaY);
  }
 }
 
@@ -788,12 +1096,14 @@ function Tick()
   gProgressiveIndex = 0;
   gDirty=false;
   gComplete=false;
+  gOrbitMapIterations = 0;
   replaceURL();
  }
  else
  {
   if (!gComplete)
-{  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
+  {
+  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
   switch(gProgressiveLevel)
   {
    case 8:
@@ -814,11 +1124,11 @@ function Tick()
     break;
    case 0.5:
     gProgressiveIndex++;
-	if (gProgressiveIndex>=64) {gProgressiveLevel=0.25;gProgressiveIndex=0;}
+	if (gProgressiveIndex>=128) {gProgressiveLevel=0.25;gProgressiveIndex=0;}
     break;
    case 0.25:
     gProgressiveIndex++;
-	if (gProgressiveIndex>=64) {gComplete=true;DrawMandelbrot();}
+	if (gProgressiveIndex>=256) {gComplete=true;DrawMandelbrot();}
     break;
   }
  }}
@@ -831,6 +1141,9 @@ function Tick()
 
  if (document.getElementById("OrbitViewer").hidden == false)
   TickOrbit();
+
+ if (document.getElementById("OrbitMap").hidden == false)
+  TickOrbitMap();
 
  if (document.getElementById("Settings").hidden == false)
   TickStats();
@@ -849,6 +1162,11 @@ function TickJulia()
   gJuliaDirty = false;
   DrawJulia();
  }
+}
+
+function TickOrbitMap()
+{
+ DrawOrbitMap();
 }
 
 function TickOrbit()
@@ -874,26 +1192,32 @@ function TickStats()
  }
 }
 
-function guiMenuVisibility(settings, julia, orbit)
+function guiMenuVisibility(settings, julia, orbit, orbitMap)
 {
  document.getElementById("Settings").hidden = !settings;
  document.getElementById("JuliaSelector").hidden = !julia;
  document.getElementById("OrbitViewer").hidden = !orbit;
+ document.getElementById("OrbitMap").hidden = !orbitMap;
 }
 
 function guiMenuSettings()
 {
- guiMenuVisibility(true, false, false);
+ guiMenuVisibility(true, false, false, false);
 }
 
 function guiMenuJuliaSelector()
 {
- guiMenuVisibility(false, true, false);
+ guiMenuVisibility(false, true, false, false);
 }
 
 function guiMenuOrbitViewer()
 {
- guiMenuVisibility(false, false, true);
+ guiMenuVisibility(false, false, true, false);
+}
+
+function guiMenuOrbitMapViewer()
+{
+ guiMenuVisibility(false, false, false, true);
 }
 
 function guiMenuHide()
@@ -941,6 +1265,7 @@ document.write('\
 <DIV class="MBMenuOpt" onclick="guiMenuSettings()">Settings</DIV>\
 <DIV class="MBMenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>\
 <DIV class="MBMenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>\
+<DIV class="MBMenuOpt" onclick="guiMenuOrbitMapViewer()">Orbit Map</DIV>\
 <DIV class="MBMenuOpt" onclick="guiMenuHide()">Hide</DIV>\
 </DIV>\
 <DIV class="MBMenu2">\
@@ -958,6 +1283,7 @@ Zoom : 3.1\
 <BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters(false, true)"> Julia Mode</INPUT>\
 <BR><INPUT id="aaEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> aaEnabled</INPUT>\
 <BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters(false, false)"> Scale Colour</INPUT>\
+<BR><DIV class="MBLabel" >Power</DIV><INPUT id="power" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
 <BR><DIV class="MBLabel" >Max Iterations</DIV><INPUT id="maxIterations" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
 <BR><DIV class="MBLabel" >Offset</DIV><INPUT id="colourOffset" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
 <BR><DIV class="MBLabel" >Multiplier</DIV><INPUT id="colourMultiplier" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
@@ -967,14 +1293,18 @@ Zoom : 3.1\
 </DIV>\
 \
 <DIV id="JuliaSelector" class="MBPanel">\
-<CANVAS style="canvas1" id="pickerCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>\
+<CANVAS style="canvas1" id="pickerCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
 <DIV id="JuliaStats">\
 </DIV>\
 </DIV>\
 \
 <DIV id="OrbitViewer" class="MBPanel">\
-<CANVAS style="canvas1" id="orbitCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>\
+<CANVAS style="canvas1" id="orbitCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
 <BUTTON id="selectOrbit" onclick="guiSelectNewOrbit()">Select New Orbit : Always</BUTTON>\
+</DIV>\
+\
+<DIV id="OrbitMap" class="MBPanel">\
+<CANVAS style="canvas1" id="orbitMapCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
 </DIV>');
 }
 gPosX = x;

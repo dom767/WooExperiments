@@ -358,8 +358,8 @@ var gOrbitDataWidth = -1;
 var gOrbitDataHeight = -1;
 var gOrbitData;
 var gOrbitMapIterations = 0;
-var gOrbitX = -1;
-var gOrbitY = -1;
+var gOrbitIterX = -1;
+var gOrbitIterY = -1;
 
 // simple drawpixel function for accumulation on the orbit map viewer
 function DrawPixel(x, y, value)
@@ -400,8 +400,8 @@ function DrawOrbitMap()
   gOrbitDataHeight = orbitHeight;
   gOrbitData = new Array(orbitWidth*orbitHeight);
   gOrbitMapIterations = 0;
-  gOrbitX = new Array(128*128);
-  gOrbitY = new Array(128*128);
+  gOrbitIterX = new Array(128*128);
+  gOrbitIterY = new Array(128*128);
  }
 
  // blank it out
@@ -437,8 +437,8 @@ function DrawOrbitMap()
    var newy = my;
    if (gOrbitMapIterations>0)
    {
-    newx = gOrbitX[x+y*64];
-    newy = gOrbitY[x+y*64];
+    newx = gOrbitIterX[x+y*64];
+    newy = gOrbitIterY[x+y*64];
    }
    var mag2 = newx*newx + newy*newy;
 
@@ -486,8 +486,8 @@ function DrawOrbitMap()
     }
    }
    
-   gOrbitX[x+y*64] = newx;
-   gOrbitY[x+y*64] = newy;
+   gOrbitIterX[x+y*64] = newx;
+   gOrbitIterY[x+y*64] = newy;
   }
  
  gOrbitMapIterations++;

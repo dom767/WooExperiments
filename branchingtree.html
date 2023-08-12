@@ -1,0 +1,88 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+
+var iterations = 1;
+var angleoffset = 5;
+var anglespread = 28;
+var lengthmul = 0.75
+var lengthspread = 0.05;
+
+iterations = 14;
+angleoffset = 23;
+anglespread = 28;
+lengthmul = 0.72
+lengthspread = 0.08;
+
+function vec2(x, y)
+{
+ this.x = x;
+ this.y = y;
+}
+
+function draw()
+{
+var c = document.getElementById("drawBuffer");
+var ctx = c.getContext("2d");
+
+var pos = new vec2(512, 768);
+var dir = new vec2(0, -1);
+var length = 150;
+
+ctx.beginPath();
+ctx.lineWidth = length*0.07;
+ctx.moveTo(pos.x, pos.y);
+pos.x += dir.x*length;
+pos.y += dir.y*length;
+ctx.lineTo(pos.x, pos.y);
+ctx.stroke();
+
+drawBranches(ctx, pos, dir, length, iterations);
+}
+
+function drawBranches(ctx, pos, dir, length, recursions)
+{
+ var angle = anglespread;
+ var angle1 = angleoffset-angle;
+ var angle2 = angleoffset+angle;
+ var lengthmul1 = lengthmul+lengthspread;
+ var lengthmul2 = lengthmul-lengthspread;
+ if (recursions==0) return;
+ var newlength = length*lengthmul1;
+ var newdir = new vec2(dir.x, dir.y);
+ newdir.x = Math.cos(3.141592*angle1/180)*dir.x - Math.sin(3.141592*angle1/180)*dir.y;
+ newdir.y = Math.sin(3.141592*angle1/180)*dir.x + Math.cos(3.141592*angle1/180)*dir.y;
+ var newpos = new vec2(pos.x, pos.y);
+ newpos.x += newdir.x*newlength;
+ newpos.y += newdir.y*newlength;
+ctx.lineWidth = newlength*0.07;
+ctx.beginPath();
+ctx.moveTo(pos.x, pos.y);
+ctx.lineTo(newpos.x, newpos.y);
+ctx.stroke();
+ drawBranches(ctx, newpos, newdir, newlength, recursions-1);
+ 
+ var newlength2 = length*lengthmul2;
+ var newdir2 = new vec2(dir.x, dir.y);
+ newdir2.x = Math.cos(3.141592*angle2/180)*dir.x - Math.sin(3.141592*angle2/180)*dir.y;
+ newdir2.y = Math.sin(3.141592*angle2/180)*dir.x + Math.cos(3.141592*angle2/180)*dir.y;
+ var newpos2 = new vec2(pos.x, pos.y);
+ newpos2.x += newdir2.x*newlength;
+ newpos2.y += newdir2.y*newlength;
+ctx.lineWidth = newlength2*0.07;
+ctx.beginPath();
+ctx.moveTo(pos.x, pos.y);
+ctx.lineTo(newpos2.x, newpos2.y);
+ctx.stroke();
+ drawBranches(ctx, newpos2, newdir2, newlength2, recursions-1);
+}
+
+</SCRIPT>
+</HEAD>
+<BODY>
+<CANVAS id="drawBuffer" width=1024 height=768 border=1></CANVAS>
+<SCRIPT>
+draw();
+</SCRIPT>
+</BODY>
+</HTML>

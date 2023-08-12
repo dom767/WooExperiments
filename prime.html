@@ -1,0 +1,307 @@
+<HTML>
+
+<HEAD></HEAD>
+
+<BODY>
+<SCRIPT>
+/*
+var calcPrimes = 10000;
+
+function isPrime(num)
+{
+ if (num==0) return false;
+ if (num==1) return false;
+ for (var i=2; i<num; i++)
+ {
+  if (num%i==0)
+   return false;
+ }
+ return true;
+}
+
+var primes = new Array();
+var numPrimes = 0;
+
+function CalculatePrimes()
+{
+ var t1 = window.performance.now();
+ for (var i=0; i<calcPrimes; i++)
+ {
+  if (isPrime(i))
+  {
+   primes[numPrimes++] = i;
+  }
+ }
+ var t2 = window.performance.now();
+ var delta = t2-t1;
+ document.writeln("<BR>Count : " + numPrimes + "<BR>Timing : " + delta);
+}
+
+function WritePrimes()
+{
+ document.write("<BR>Primes : ")
+ for (var i=0; i<numPrimes; i++)
+ {
+  document.write(primes[i]);
+  if (i<numPrimes-1) document.write(", ");
+ }
+}
+
+CalculatePrimes();
+WritePrimes();
+
+*//*
+
+var calcPrimes = 1000000;
+
+function isPrime(num)
+{
+ if (num==0) return false;
+ if (num==1) return false;
+ for (var i=2; i<=Math.sqrt(num); i++)
+ {
+  if (num%i==0)
+   return false;
+ }
+ return true;
+}
+
+var primes = new Array();
+var numPrimes = 0;
+
+function CalculatePrimes()
+{
+ var t1 = window.performance.now();
+ for (var i=0; i<calcPrimes; i++)
+ {
+  if (isPrime(i))
+  {
+   primes[numPrimes++] = i;
+  }
+ }
+ var t2 = window.performance.now();
+ var delta = t2-t1;
+ document.writeln("<BR>Count : " + numPrimes + "<BR>Timing : " + delta);
+}
+
+function WritePrimes()
+{
+ document.write("<BR>Primes : ")
+ for (var i=0; i<numPrimes; i++)
+ {
+  document.write(primes[i]);
+  if (i<numPrimes-1) document.write(", ");
+ }
+}
+
+CalculatePrimes();
+WritePrimes();
+
+
+*/
+var calcPrimes = 10000000;
+
+function isPrime(num)
+{
+ if (num==0) return false;
+ if (num==1) return false;
+ var sqrtnum = Math.sqrt(num);
+
+ for (var i=0; i<=numPrimes && primes[i]<=sqrtnum; i++)
+ {
+  if (num%primes[i]==0)
+   return false;
+ }
+ return true;
+}
+
+var primes = new Array();
+var numPrimes = 0;
+
+function CalculatePrimes()
+{
+ var t1 = window.performance.now();
+ for (var i=0; i<calcPrimes; i++)
+ {
+  if (isPrime(i))
+  {
+   primes[numPrimes++] = i;
+  }
+ }
+ var t2 = window.performance.now();
+ var delta = t2-t1;
+ document.writeln("<BR>Count : " + numPrimes + "<BR>Timing : " + delta);
+}
+
+function WritePrimes()
+{
+ document.write("<BR>Primes : ")
+ for (var i=0; i<numPrimes; i++)
+ {
+  document.write(primes[i]);
+  if (i<numPrimes-1) document.write(", ");
+ }
+}
+
+CalculatePrimes();
+WritePrimes();
+
+
+function WritePalindromes()
+{
+ document.write("<BR>Palindromes : ");
+ for (i=0; i<numPrimes; i++)
+ {
+  var prime = primes[i];
+  var primestr = prime.toString();
+  var digits = primestr.length;
+  var isPalindrome = true;
+
+  for (j=0; j<digits/2; j++)
+  {
+   if (primestr.charAt(j)!=primestr.charAt((digits-1)-j))
+   isPalindrome=false;
+  }
+
+  if (isPalindrome)
+   document.write(primestr+", ");
+ }
+}
+
+WritePalindromes();
+
+
+function isPrime2(num)
+{
+if (num==0) return false;
+if (num==1) return false;
+ var sqrtnum = Math.sqrt(num);
+ for (var i=2; i<=sqrtnum; i++)
+ {
+  if (num%i==0)
+   return false;
+ }
+ return true;
+}
+
+function isPrime3(num)
+{
+if (num==0) return false;
+if (num==1) return false;
+var sqrtnum = Math.sqrt(num);
+ 
+ for (var i=0; i<numprimes && primes[i]<=sqrtnum; i++)
+ {
+  if (num%primes[i]==0)
+   return false;
+ }
+ primes[numprimes++] = num;
+ return true;
+}
+
+function WritePrimes2()
+{
+ var countprimes = 0;
+ var t1 = window.performance.now();
+ for (var i=0; i<calcPrimes; i++)
+ {
+  if (isPrime2(i))
+  {
+   countprimes++;
+  // document.writeln(i + "<BR>");
+  }
+ }
+ var t2 = window.performance.now();
+ var delta = t2-t1;
+ document.writeln("Count : " + countprimes + " Timing : " + delta);
+}
+
+function WritePrimes3()
+{
+ var countprimes2 = 0;
+ var t3 = window.performance.now();
+ for (var i=0; i<calcPrimes; i++)
+ {
+  if (isPrime3(i))
+  {
+   countprimes2++;
+   document.writeln(i + "<BR>");
+  }
+ }
+ var t4 = window.performance.now();
+ var delta2 = t4-t3;
+ document.writeln("Count : " + countprimes2 + " Timing : " + delta2);
+}
+
+function NumPer10000()
+{
+ document.writeln("<BR><BR>Number of primes per 10000 segment<BR>");
+ var buckets = new Array(100);
+ for (i=0; i<100; i++)
+ {
+  buckets[i]=0;
+ }
+ for (i=0; i<numprimes; i++)
+ {
+  buckets[Math.floor(primes[i]/10000)]++;
+ }
+ for (i=0; i<100; i++)
+ {
+  document.writeln(buckets[i]+"<BR>");
+ }
+}
+
+function PercentPer100()
+{
+ document.writeln("<BR><BR>Prime Percent per 100 (first 10000)<BR>");
+ var buckets = new Array(100);
+ for (i=0; i<100; i++)
+ {
+  buckets[i]=0;
+ }
+ for (i=0; primes[i]<10000; i++)
+ {
+  buckets[Math.floor(primes[i]/100)]++;
+ }
+ for (i=0; i<100; i++)
+ {
+  document.writeln(buckets[i]+"<BR>");
+ }
+}
+
+function AverageGapPer100()
+{
+ document.writeln("<BR><BR>Average gap per 100 (first 10000)<BR>");
+ var bucketssum = new Array(100);
+ var bucketscount = new Array(100);
+ for (i=0; i<100; i++)
+ {
+  bucketssum[i]=0;
+  bucketscount[i]=0;
+ }
+ for (i=1; primes[i]<10000; i++)
+ {
+  bucketssum[Math.floor(primes[i]/100)]+=primes[i]-primes[i-1];
+  bucketscount[Math.floor(primes[i]/100)]++;
+ }
+ for (i=0; i<100; i++)
+ {
+  document.writeln(bucketssum[i]/bucketscount[i]+"<BR>");
+ }
+}
+/*
+function WritePrimes()
+{
+// WritePrimes1();
+ WritePrimes2();
+ NumPer10000();
+ PercentPer100();
+ AverageGapPer100()
+}
+//WritePrimes();
+*/
+ 
+</SCRIPT>
+</BODY>
+
+</HTML>

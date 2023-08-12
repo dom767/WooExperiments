@@ -1,0 +1,481 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+var gWidth = 1024;
+var gHeight = 1024;
+var gFloatBuffer = new Array();
+
+function Initialise()
+{
+ setTimeout(Draw(), 100);
+}
+
+var gRotate = 0;
+var gStartStop = true;
+
+function StartStop()
+{
+ gStartStop = !gStartStop;
+}
+
+function Draw()
+{
+ if (gStartStop) gRotate += 0.03;
+
+ for (y=0; y<1024; y++)
+  for (x=0; x<1024; x++)
+  {
+   gFloatBuffer[y*1024 + x] = 1.0;
+  }
+
+ var size = new vec2(0.33333333, 0.3333333);
+ size.x += Math.sin(gRotate)*0.2; size.y += Math.sin(gRotate)*0.2;
+
+ var offset = new vec2(0.5, 0.5);
+ offset.x += Math.sin(gRotate*2.7)*0.3; offset.y += Math.sin(gRotate*2.7)*0.3;
+ 
+ var rotation = Math.sin(gRotate*3.133)*0.9;
+
+ CalculateCarpet(6, new vec2(0.2,0.2), new vec2(0.8,0.2), new vec2(0.2, 0.8), new vec2(0.8, 0.8), offset, size, rotation); 
+ RenderCarpet();
+
+ setTimeout(Draw, 10);
+}
+
+function RenderRow(y, xs, xe, weight)
+{
+ if (Math.floor(xs)==Math.floor(xe))
+ {
+  gFloatBuffer[(y*gWidth) + Math.floor(xs)] -= weight*(xe-xs);
+ }
+ else
+ {
+  gFloatBuffer[(y*gWidth) + Math.floor(xs)] -= weight*(1-(xs-Math.floor(xs)));
+ 
+  for (x=Math.floor(xs)+1; x<Math.floor(xe); x++)
+  {
+   gFloatBuffer[(y*gWidth) + x] -= weight;
+  }
+
+  gFloatBuffer[(y*gWidth) + Math.floor(xe)] -= weight*((xe-Math.floor(xe)));
+ }
+}
+
+function vec2(x, y)
+{
+ this.x = x;
+ this.y = y;
+}
+
+function EdgeIntersects(v0, v1, x, y)
+{
+ // fast rejects
+ if (v0.x<x && v1.x<x) return false;
+ if (v0.y<y && v1.y<y) return false;
+ if (v0.x>x+1 && v1.x>x+1) return false;
+ if (v0.y>y+1 && v1.y>y+1) return false;
+ 
+ var t = new Array;
+ t[0] = y-v0.y / v1.y-v0.y;
+ t[1] = x+1-v0.x / v1.x-v0.x;
+ t[2] = y+1-v0.y / v1.y-v0.y;
+ t[3] = x-v0.x / v1.x-v0.x;
+ 
+ var smallestt=2, smallesttindex=-1;
+ for (i=0; i<4; i++)
+ {
+  if (t[i]>=0 && t[i]<=1 && t[i]<smallestt) {smallestt=t[i];smallestindex=i;}
+ }
+ 
+ if (smallesttindex>0) return true;
+}
+
+function edge(start, end)
+{
+ this.start = start;
+ this.end = end;
+}
+
+function inside(edge, point)
+{
+ return ((edge.end.x-edge.start.x) * (point.y-edge.start.y) - (edge.end.y - edge.start.y) * (point.x - edge.start.x))<0;
+}
+
+function CalculateIntersection(edge, start, stop)
+{
+ // Assumptions
+ // All edges are non zero
+ // An intersection will occur
+ var a1 = edge.end.y - edge.start.y;
+ var b1 = edge.start.x - edge.end.x;
+ var c1 = a1*edge.start.x + b1*edge.start.y;
+ 
+ var a2 = stop.y - start.y;
+ var b2 = start.x - stop.x;
+ var c2 = a2*start.x + b2*start.y;
+ 
+ var determinant = a1*b2 - a2*b1;
+ var x = (b2*c1 - b1*c2) / determinant;
+ var y = (a1*c2-a2*c1) / determinant;
+  
+ return new vec2(x, y);
+}
+
+function CalculateArea(v0, v1, v2)
+{
+ var e1 = new vec2(v1.x-v0.x, v1.y-v0.y);
+ var e2 = new vec2(v2.x-v1.x, v2.y-v1.y);
+ var cross = e1.x*e2.y - e2.x*e1.y;
+ return -cross*0.5;
+}
+
+function CalculatePixelOverlay(v0, v1, v2, x, y)
+{
+ var in_Shape = new Array();
+ in_Shape[0] = new vec2(x, y);
+ in_Shape[1] = new vec2(x, y+1);
+ in_Shape[2] = new vec2(x+1, y+1);
+ in_Shape[3] = new vec2(x+1, y);
+ 
+ var edges = new Array();
+ edges[0] = new edge(v0, v1);
+ edges[1] = new edge(v1, v2);
+ edges[2] = new edge(v2, v0);
+ 
+ var out_Shape = new Array();
+ 
+ for (e=0; e<3; e++)
+ {
+  for (i=0; i<in_Shape.length; i++)
+  {
+   var prev = (i+in_Shape.length-1)%in_Shape.length;
+
+   if (inside(edges[e], in_Shape[i]))
+   {
+    if (!inside(edges[e], in_Shape[prev]))
+	{
+	 out_Shape.push(CalculateIntersection(edges[e], in_Shape[prev], in_Shape[i]));
+	}
+	out_Shape.push(in_Shape[i]);
+   }
+   else
+   {
+    if (inside(edges[e], in_Shape[prev]))
+	{
+	 out_Shape.push(CalculateIntersection(edges[e], in_Shape[prev], in_Shape[i]));
+	}
+   }   
+  }
+  in_Shape = out_Shape;
+  out_Shape = new Array();
+ }
+
+ var area = 0
+ // calculate area of shape using triangle fan
+ for (t=0; t<in_Shape.length-2; t++)
+ {
+  area += CalculateArea(in_Shape[0], in_Shape[1+t], in_Shape[2+t]);
+ }
+ return area;
+
+ return in_Shape.length * 0.1;
+ if (in_Shape.length==4) return 0.25;
+ return 0.5; 
+}
+
+function RenderTriangle(v0, v1, v2)
+{
+ // sidelength 0 check
+ if (v0.x==v1.x && v0.y==v1.y
+  || v1.x==v2.x && v1.y==v2.y
+  || v0.x==v2.x && v0.y==v2.y) return;
+ 
+ // clockwise check
+ var e1 = new vec2(v1.x-v0.x, v1.y-v0.y);
+ var e2 = new vec2(v2.x-v1.x, v2.y-v1.y);
+ var cross = e1.x*e2.y - e2.x*e1.y;
+ if (cross>0)
+  return;
+
+ // which vertex is top?
+ var topmost = 0;
+ if (v1.y<v0.y)
+ {
+  if (v2.y<v1.y) topmost = 2;
+  else topmost = 1;
+ }
+ else
+ {
+  if (v2.y<v0.y) topmost = 2;
+ }
+ 
+ // set up new vertex ordering (t0, t1, t2)
+ var t0, t1, t2;
+ if (topmost==0) {t0=v0;t1=v1;t2=v2;}
+ if (topmost==1) {t0=v1;t1=v2;t2=v0;}
+ if (topmost==2) {t0=v2;t1=v0;t2=v1;}
+
+ // recalculate edges
+ e1 = new vec2(t1.x-t0.x, t1.y-t0.y);
+ e2 = new vec2(t2.x-t0.x, t2.y-t0.y);
+ 
+ var xd1 = e1.x / e1.y;
+ var xd2 = e2.x / e2.y;
+
+ // starters orders 
+ var starty = Math.floor(t0.y);
+ var midvert = t2.y<t1.y ? 2 : 1;
+ var endy = Math.floor(midvert==2?t1.y:t2.y)+1;
+
+ // initialise the xleft and xright iterators at the top vert
+ var x1 = t0.x;
+ var x2 = t0.x;
+ var iterx1 = Math.floor(x1);
+ var iterx2 = Math.floor(x2)+1;
+
+ // move to the bottom of the first pixel, and check if xleft and xright iterators need bumping
+ var startdy = Math.floor(t0.y)+1-t0.y;
+ x1 = t0.x + startdy*xd1;
+ x2 = t0.x + startdy*xd2;
+ if (Math.floor(x1)<iterx1) iterx1=Math.floor(x1);
+ if (Math.floor(x2)+1>iterx2) iterx2=Math.floor(x2)+1;
+ 
+ // if either of the other verts are on the same row as the top vert, we need to take that into account...
+ if (Math.floor(t1.y)==starty)
+ {
+  iterx1 = Math.floor(t1.x);
+  if (midvert==1)
+  {
+   e1 = new vec2(t2.x-t1.x, t2.y-t1.y);
+   xd1 = e1.x / e1.y;
+   x1 = t1.x + (Math.floor(t1.y)+1-t1.y)*xd1;
+  }
+ }
+ if (Math.floor(t2.y)==starty)
+ {
+  iterx2 = Math.floor(t2.x)+1;
+  if (midvert==2)
+  {
+   e2 = new vec2(t1.x-t2.x, t1.y-t2.y);
+   xd2 = e2.x / e2.y;
+   x2 = t2.x + (Math.floor(t2.y)+1-t2.y)*xd2;
+  }
+ }
+
+ // iterate the triangle 
+ for (y=starty; y<endy; y++)
+ {
+  for (x=iterx1; x<iterx2; x++)
+  {
+   if (x>=0 && x<gWidth && y>=0 && y<gHeight)
+    gFloatBuffer[(y*gWidth) + x] -= CalculatePixelOverlay(v0, v1, v2, x, y);
+  }
+  
+  iterx1 = Math.floor(x1);
+  iterx2 = Math.floor(x2)+1;
+  
+  var newiterx1, newiterx2;
+  
+  // iterate to next row
+  if (Math.floor(t1.y)==y+1
+     && Math.floor(t2.y)==y+1)
+  {
+   x1 = t1.x;
+   x2 = t2.x;
+   newiterx1 = Math.floor(x1);
+   newiterx2 = Math.floor(x2)+1;
+  }
+  else
+  {
+   if (Math.floor(t1.y)==y+1)
+   {
+    newiterx1 = Math.floor(t1.x);
+    if (midvert==1)
+    {
+     e1 = new vec2(t2.x-t1.x, t2.y-t1.y);
+     xd1 = e1.x / e1.y;
+     x1 = t1.x + (Math.floor(t1.y)+1-t1.y)*xd1;
+    }
+   }
+   else
+   {
+    x1 += xd1;
+    newiterx1 = Math.floor(x1);
+   }
+  
+   if (Math.floor(t2.y)==y+1)
+   {
+    newiterx2 = Math.floor(t2.x)+1;
+    if (midvert==2)
+    {
+     e2 = new vec2(t1.x-t2.x, t1.y-t2.y);
+     xd2 = e2.x / e2.y;
+     x2 = t2.x + (Math.floor(t2.y)+1-t2.y)*xd2;
+    }
+   }
+   else
+   {
+    x2 += xd2;
+    newiterx2 = Math.floor(x2)+1;
+   }
+  }
+  
+  if (newiterx1<iterx1) iterx1 = newiterx1;
+  if (newiterx2>iterx2) iterx2 = newiterx2;
+ }
+}
+
+function RenderSquare(xs, xe, ys, ye)
+{
+ RenderTriangle (new vec2(gWidth*xs.x, gHeight*xs.y), new vec2(gWidth*ys.x, gHeight*ys.y), new vec2(gWidth*xe.x, gHeight*xe.y));
+ RenderTriangle (new vec2(gWidth*xe.x, gHeight*xe.y), new vec2(gWidth*ys.x, gHeight*ys.y), new vec2(gWidth*ye.x, gHeight*ye.y));
+ return;
+
+ // calculate integer screenspace values from floats
+ var iys = ys*gHeight;
+ var iye = ye*gHeight;
+ var ixs = xs*gWidth;
+ var ixe = xe*gWidth;
+ 
+ if (Math.floor(iys)==Math.floor(iye))
+ {
+  //subpixel
+  weight = iye-iys;
+  RenderRow(Math.floor(iys), ixs, ixe, weight);
+ }
+ else
+ {
+  // draw top row
+  RenderRow(Math.floor(iys), ixs, ixe, 1-(iys-Math.floor(iys)));
+  
+  // draw middle rows
+  for (var y=Math.floor(iys)+1; y<Math.floor(iye); y++)
+  {
+   RenderRow(y, ixs, ixe, 1.0);
+  }
+ 
+  // draw bottom row
+  RenderRow(Math.floor(iye), ixs, ixe, (iye-Math.floor(iye)));
+ }
+}
+
+function RotateFromTo(i1, i2, i3, i4, x11, x12, x21, x22, rotation)
+{
+  var centre = new vec2((i1.x+i2.x+i3.x+i4.x)*0.25, (i1.y+i2.y+i3.y+i4.y)*0.25);
+ 
+  x11.x = centre.x-i1.x; x11.y = centre.y-i1.y;
+  x21.x = centre.x-i3.x; x21.y = centre.y-i3.y;
+  x12.x = centre.x-i2.x; x12.y = centre.y-i2.y;
+  x22.x = centre.x-i4.x; x22.y = centre.y-i4.y;
+
+  // rotate by rotation
+  x11.x = Math.cos(rotation)*x11.x - Math.sin(rotation)*x11.y;
+  x11.y = Math.cos(rotation)*x11.y + Math.sin(rotation)*x11.x;
+  x21.x = Math.cos(rotation)*x21.x - Math.sin(rotation)*x21.y;
+  x21.y = Math.cos(rotation)*x21.y + Math.sin(rotation)*x21.x;
+  x12.x = Math.cos(rotation)*x12.x - Math.sin(rotation)*x12.y;
+  x12.y = Math.cos(rotation)*x12.y + Math.sin(rotation)*x12.x;
+  x22.x = Math.cos(rotation)*x22.x - Math.sin(rotation)*x22.y;
+  x22.y = Math.cos(rotation)*x22.y + Math.sin(rotation)*x22.x;
+ 
+  x11.x = centre.x-x11.x; x11.y = centre.y-x11.y;
+  x21.x = centre.x-x21.x; x21.y = centre.y-x21.y;
+  x12.x = centre.x-x12.x; x12.y = centre.y-x12.y;
+  x22.x = centre.x-x22.x; x22.y = centre.y-x22.y;
+
+}
+
+function CalculateCarpet(iterations, xs, xe, ys, ye, offset, size, rotation)
+{
+ if (iterations==0)
+ {
+  RenderSquare(xs, xe, ys, ye);
+ }
+ else
+ {
+  var x1 = offset.x-size.x*0.5;
+  var x2 = offset.x+size.x*0.5;
+  var y1 = offset.y-size.y*0.5;
+  var y2 = offset.y+size.y*0.5;
+ 
+  var x00 = new vec2(xs.x, xs.y);
+  var x10 = new vec2(xs.x + (xe.x-xs.x)*x1, xs.y + (xe.y-xs.y)*x1);
+  var x20 = new vec2(xs.x + (xe.x-xs.x)*x2, xs.y + (xe.y-xs.y)*x2);
+  var x30 = new vec2(xe.x, xe.y);
+
+  var x01 = new vec2(xs.x + (ys.x-xs.x)*y1, xs.y + (ys.y-xs.y)*y1);
+  var x31 = new vec2(xe.x + (ye.x-xe.x)*y1, xe.y + (ye.y-xe.y)*y1);
+ 
+  var x02 = new vec2(xs.x + (ys.x-xs.x)*y2, xs.y + (ys.y-xs.y)*y2);
+  var x32 = new vec2(xe.x + (ye.x-xe.x)*y2, xe.y + (ye.y-xe.y)*y2);
+
+  var x03 = new vec2(ys.x, ys.y);
+  var x13 = new vec2(ys.x + (ye.x-ys.x)*x1, ys.y + (ye.y-ys.y)*x1);
+  var x23 = new vec2(ys.x + (ye.x-ys.x)*x2, ys.y + (ye.y-ys.y)*x2);
+  var x33 = new vec2(ye.x, ye.y);
+
+  var x11 = new vec2(x01.x + (x31.x-x01.x)*x1, x01.y + (x31.y-x01.y)*x1);
+  var x21 = new vec2(x01.x + (x31.x-x01.x)*x2, x01.y + (x31.y-x01.y)*x2);
+
+  var x12 = new vec2(x02.x + (x32.x-x02.x)*x1, x02.y + (x32.y-x02.y)*x1);
+  var x22 = new vec2(x02.x + (x32.x-x02.x)*x2, x02.y + (x32.y-x02.y)*x2);
+ 
+  var v1 = new vec2(0,0);
+  var v2 = new vec2(0,0);
+  var v3 = new vec2(0,0);
+  var v4 = new vec2(0,0);
+  RotateFromTo(x00,x10,x01,x11,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x10, x20, x11, x21,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x20, x30, x21, x31,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x01, x11, x02, x12,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x21, x31, x22, x32,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x02, x12, x03, x13,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x12, x22, x13, x23,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+  RotateFromTo(x22, x32, x23, x33,v1,v2,v3,v4,rotation);
+  CalculateCarpet(iterations-1, v1, v2, v3, v4, offset, size, rotation);
+ }
+}
+
+function RenderCarpet()
+{
+ var canvas = document.getElementById('canvas');
+
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+  
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+    var val = gFloatBuffer[Math.floor(x)+Math.floor(y)*gWidth];
+    imageData.data[4*(x+y*gWidth)] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+1] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+2] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+   }
+  
+  ctx.putImageData(imageData,0,0);  
+ }
+}
+
+</SCRIPT>
+</HEAD>
+<BODY>
+<CANVAS id="canvas" width=1024 height=1024></CANVAS>
+<DIV>
+<BUTTON onClick="StartStop();">Start Stop</BUTTON>
+</DIV>
+
+<SCRIPT>
+Initialise();
+</SCRIPT>
+</BODY>
+</HTML>

@@ -1,0 +1,127 @@
+<HTML>
+<HEAD>
+<SCRIPT>
+var gWidth = 2340;
+var gHeight = 2340;
+var gFloatBuffer = new Array();
+
+function Initialise()
+{
+ for (y=0; y<gHeight; y++)
+  for (x=0; x<gWidth; x++)
+  {
+   gFloatBuffer[y*gWidth + x] = 1.0;
+  }
+
+ CalculateCarpet(6, 0, 1, 0, 1);
+ 
+ RenderCarpet();
+}
+
+function RenderRow(y, xs, xe, weight)
+{
+ if (Math.floor(xs)==Math.floor(xe))
+ {
+  gFloatBuffer[(y*gWidth) + Math.floor(xs)] -= weight*(xe-xs);
+ }
+ else
+ {
+  gFloatBuffer[(y*gWidth) + Math.floor(xs)] -= weight*(1-(xs-Math.floor(xs)));
+ 
+  for (x=Math.floor(xs)+1; x<Math.floor(xe); x++)
+  {
+   gFloatBuffer[(y*gWidth) + x] -= weight;
+  }
+
+  gFloatBuffer[(y*gWidth) + Math.floor(xe)] -= weight*((xe-Math.floor(xe)));
+ }
+}
+
+function RenderSquare(xs, xe, ys, ye)
+{
+ var pixelSize = 1/gWidth;
+
+ // calculate integer screenspace values from floats
+ var iys = ys*gHeight;
+ var iye = ye*gHeight;
+ var ixs = xs*gWidth;
+ var ixe = xe*gWidth;
+ 
+ if (Math.floor(iys)==Math.floor(iye))
+ {
+  //subpixel
+  weight = iye-iys;
+  RenderRow(Math.floor(iys), ixs, ixe, weight);
+ }
+ else
+ {
+  // draw top row
+  RenderRow(Math.floor(iys), ixs, ixe, 1-(iys-Math.floor(iys)));
+  
+  // draw middle rows
+  for (var y=Math.floor(iys)+1; y<Math.floor(iye); y++)
+  {
+   RenderRow(y, ixs, ixe, 1.0);
+  }
+ 
+  // draw bottom row
+  RenderRow(Math.floor(iye), ixs, ixe, (iye-Math.floor(iye)));
+ }
+}
+
+function CalculateCarpet(iterations, xs, xe, ys, ye)
+{
+ var width = xe-xs;
+ var height = ye-ys;
+ var dx = width/3;
+ var dy = height/3;
+ if (iterations==0)
+ {
+  RenderSquare(xs+width*0.3333333333, xs+width*0.666666666667, ys+height*0.333333333333333, ys+height*0.666666666667);
+ }
+ else
+ {
+  RenderSquare(xs+width*0.3333333333, xs+width*0.666666666667, ys+height*0.333333333333333, ys+height*0.666666666667);
+  CalculateCarpet(iterations-1, xs, xs+dx, ys, ys+dy);
+  CalculateCarpet(iterations-1, xs+dx, xs+dx*2, ys, ys+dy);
+  CalculateCarpet(iterations-1, xs+dx*2, xe, ys, ys+dy);
+  CalculateCarpet(iterations-1, xs, xs+dx, ys+dy, ys+2*dy);
+  CalculateCarpet(iterations-1, xs+dx*2, xe, ys+dy, ys+2*dy);
+  CalculateCarpet(iterations-1, xs, xs+dx, ys+2*dy, ye);
+  CalculateCarpet(iterations-1, xs+dx, xs+dx*2, ys+2*dy, ye);
+  CalculateCarpet(iterations-1, xs+dx*2, xe, ys+2*dy, ye);
+ }
+}
+
+function RenderCarpet()
+{
+ var canvas = document.getElementById('canvas');
+
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+  
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+    var val = gFloatBuffer[x+y*gWidth];
+    imageData.data[4*(x+y*gWidth)] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+1] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+2] = val*255.99;
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+   }
+  
+  ctx.putImageData(imageData,0,0);  
+ }
+}
+
+</SCRIPT>
+</HEAD>
+<BODY>
+<CANVAS id="canvas" width=2340 height=2340/>
+<SCRIPT>
+Initialise();
+</SCRIPT>
+</BODY>
+</HTML>
