@@ -55,6 +55,8 @@ uniform vec3 XEColour;
 uniform vec3 YEColour;
 uniform vec3 ZEColour;
 uniform bool HSLBlend;
+uniform bool sliceFractal;
+uniform float sliceHeight;
 
 mat3 constructCameraBasis(vec3 cameraPos, vec3 target, vec3 up) {
     vec3 forward = normalize(cameraPos - target);
@@ -68,7 +70,7 @@ float sphereSDF(vec3 point, vec3 center, float radius) {
     return length(point - center) - radius;
 }
 
-float mandelbulbDE(vec3 pos, out vec3 trap) {
+float mandelbulbDE(vec3 pos, out vec4 trap) {
     int maxIterations = iterations;
     const float escapeBound = 2.0;
 
@@ -78,7 +80,7 @@ float mandelbulbDE(vec3 pos, out vec3 trap) {
     float r = 0.0;
 	float theta, phi;
 	
-	trap = abs(z);
+	trap = vec4(abs(z),0.0);
 
     for (int i = 0; i < maxIterations; i++) {
        r = length(z);
@@ -99,19 +101,19 @@ float mandelbulbDE(vec3 pos, out vec3 trap) {
 			z += juliaStart;
         else
 			z += pos.xzy;
-	    trap = min(trap, abs(z));
+	    trap = vec4(min(trap.xyz, abs(z)), i);
     }
 
     return 0.5 * log(r) * r / dr;
 }
 
-float distanceEstimate(vec3 point, out vec3 trap) {
+float distanceEstimate(vec3 point, out vec4 trap) {
     return mandelbulbDE(point, trap);
 }
 
 vec3 estimateNormal(vec3 point) {
     const float eps = 0.0001;
-	vec3 trap;
+	vec4 trap;
     float dx = distanceEstimate(point + vec3(eps, 0.0, 0.0), trap) - distanceEstimate(point - vec3(eps, 0.0, 0.0), trap);
     float dy = distanceEstimate(point + vec3(0.0, eps, 0.0), trap) - distanceEstimate(point - vec3(0.0, eps, 0.0), trap);
     float dz = distanceEstimate(point + vec3(0.0, 0.0, eps), trap) - distanceEstimate(point - vec3(0.0, 0.0, eps), trap);
@@ -122,7 +124,7 @@ float softShadow(vec3 ro, vec3 rd, float start, float end) {
     float res = 1.0;
     float t = start;
     for (int i = 0; i < 50; i++) {
-		vec3 trap;
+		vec4 trap;
         float h = distanceEstimate(ro + rd * t, trap);
         if (h < 0.001) return 0.0;  // Fully in shadow
         res = min(res, 8.0 * h / t);
@@ -187,7 +189,64 @@ vec3 hsl2rgb(vec3 c) {
     return vec3(r, g, b);
 }
 
+vec3 GetFractalColour(vec4 trap) {
+	vec3 trapColour = vec3(0.0, 0.0, 0.0);
+	if (HSLBlend) {
+	    vec3 hsl1, hsl2, hsl3;
+		if (XOrbitColour)
+		{
+		 hsl1 = mix(rgb2hsl(XBColour), rgb2hsl(XEColour), trap.x);
+		}
+		if (YOrbitColour)
+		{
+		 hsl2 = mix(rgb2hsl(YBColour), rgb2hsl(YEColour), trap.y);
+		}
+		if (ZOrbitColour)
+		{
+		 hsl3 = mix(rgb2hsl(ZBColour), rgb2hsl(ZEColour), trap.z);
+		}
+		vec3 sum = (XOrbitColour?hsl1:vec3(0,0,0)) + 
+			(YOrbitColour?hsl2:vec3(0,0,0)) + 
+			(ZOrbitColour?hsl3:vec3(0,0,0));
+		sum /= (XOrbitColour?1.0:0.0)+(YOrbitColour?1.0:0.0)+(ZOrbitColour?1.0:0.0);
+		sum.x = (XOrbitColour?hsl1.x*trap.x:0.0) + 
+			(YOrbitColour?hsl2.x*trap.y:0.0) + 
+			(ZOrbitColour?hsl3.x*trap.z:0.0);
+		sum.x /= (XOrbitColour?trap.x:0.0)+(YOrbitColour?trap.y:0.0)+(ZOrbitColour?trap.z:0.0);
+		
+		trapColour = clamp(hsl2rgb(sum), 0.0, 1.0);
+	}
+	else {
+		if (XOrbitColour)
+		{
+		 trapColour += trap.xxx * mix(XBColour, XEColour, trap.x);
+		}
+		if (YOrbitColour)
+		{
+		 trapColour += trap.yyy * mix(YBColour, YEColour, trap.y);
+		}
+		if (ZOrbitColour)
+		{
+		 trapColour += trap.zzz * mix(ZBColour, ZEColour, trap.z);
+		}
+		trapColour = clamp(trapColour, 0.0, 1.0);
+	}
+	return trapColour;
+}
+
 void main() {
+	if (sliceFractal)
+	{
+	  vec2 normalizedCoord = (2.0*gl_FragCoord.xy - resolution) / min(resolution.y, resolution.x);
+	  vec3 position = vec3(normalizedCoord.x, sliceHeight, normalizedCoord.y);
+	  vec4 trap;
+	  distanceEstimate(position, trap);
+	  vec3 colour = vec3(1,1,1);//GetFractalColour(trap);
+	  colour *= trap.w/float(iterations);
+	  gl_FragColor = vec4(colour, 1.0);
+	  return;
+	}
+
     // 1. Normalize the 2D screen coordinates
     vec2 normalizedCoord = (2.0*gl_FragCoord.xy - resolution) / min(resolution.y, resolution.x);
     if (depthCheck)
@@ -222,7 +281,7 @@ void main() {
     float sphereRadius = 1.0;
 
     float epsilon = minDist*baseEpsilonFactor;
-		vec3 trap;
+	vec4 trap;
 		
 	// Raymarching loop
     for (int i = 0; i < estimateIterations; i++) {  // Limit the number of iterations
@@ -259,7 +318,7 @@ void main() {
 		
 		// Calculate Lambertian reflectance
 		float lambert = softShadow(hitPoint, lightDir, 0.05, 0.3) * max(0.0, dot(normal, lightDir));		
-    vec3 ambientColor = mix(groundColor, skyColor, 0.5 + 0.5 * normal.y);
+		vec3 ambientColor = mix(groundColor, skyColor, 0.5 + 0.5 * normal.y);
      
     // Combine lambertian and ambient lighting
     vec3 baseColor = vec3(0.8, 0.5, 0.3); 
@@ -326,6 +385,7 @@ void main() {
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 let isDragging = false;
+let isJuliaDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
 let gJuliaLocation = { x: 0, y: 0, z: 0 };
 let gOrbitLocation = { x: 0, y: 0, z: 0 };
@@ -335,6 +395,7 @@ let gZoom = 1;
 let gDirty = true;
 let gJuliaDirty = true;
 let gOrbitViewDirty = true;
+let gOrbitMapDirty = true;
 let gScreenSpaceDE = true;
 let gBaseEpsilonFactor = 1.0;
 let gEstimateIterations = 1000;
@@ -343,6 +404,7 @@ let gCameraFrom = { x: 0, y: 0, z: 3};
 let gCameraTo = { x: 0, y: 0, z: 0};
 let gFOV = Math.PI / 3;
 let gSliceFractal = false;
+let gSliceHeight = 0.0;
 let gXOrbitColour = true;
 let gYOrbitColour = true;
 let gZOrbitColour = true;
@@ -353,6 +415,8 @@ let gXEColour = { r: 1.0, g: 0.0, b: 0.0}
 let gYEColour = { r: 0.0, g: 1.0, b: 0.0}
 let gZEColour = { r: 0.0, g: 0.0, b: 1.0}
 let gHSLBlend = true;
+let gJuliaMain = false;
+let gJuliaDragSelection = false;
 let gURL = "";
 
 function hexToFloat(hex)
@@ -465,7 +529,9 @@ var shaderMaterial = new THREE.ShaderMaterial({
 		XEColour: {value : new THREE.Vector3(1.0, 0.0, 0.0) },
 		YEColour: {value : new THREE.Vector3(0.0, 1.0, 0.0) },
 		ZEColour: {value : new THREE.Vector3(0.0, 0.0, 1.0) },
-		HSLBlend : {value : true}
+		HSLBlend : {value : true},
+		sliceFractal: {value: false},
+		sliceHeight: {value: 0.0 }
 }});
 
 
@@ -493,18 +559,39 @@ function SetUniforms()
 	shaderMaterial.uniforms.XEColour.value.set(gXEColour.r, gXEColour.g, gXEColour.b);
 	shaderMaterial.uniforms.YEColour.value.set(gYEColour.r, gYEColour.g, gYEColour.b);
 	shaderMaterial.uniforms.ZEColour.value.set(gZEColour.r, gZEColour.g, gZEColour.b);
+	shaderMaterial.uniforms.sliceHeight.value = gSliceHeight;
+	shaderMaterial.uniforms.juliaStart.value.set(gJuliaLocation.x, gJuliaLocation.y, gJuliaLocation.z);
 }
 
 function AnimateJulia() {
 	if (gJuliaDirty)
 	{
+		SetCameraPosition(gJuliaRotation);
+
 		shaderMaterial.uniforms.depthCheck.value = false;
-		shaderMaterial.uniforms.juliaMode.value = true;
+		shaderMaterial.uniforms.juliaMode.value = !gJuliaMain;
+		shaderMaterial.uniforms.sliceFractal.value = false;
 		shaderMaterial.uniforms.iterations.value = 20;
 		shaderMaterial.uniforms.resolution.value.set(500,300);
 		SetUniforms();
-		subWindowRenderer.render(scene, camera);
+		shaderMaterial.uniforms.cameraPosition2.value.set(gCameraFrom.x, gCameraFrom.y, gCameraFrom.z);
+		shaderMaterial.uniforms.cameraTarget.value.set(gCameraTo.x, gCameraTo.y, gCameraTo.z);
+		juliaWindowRenderer.render(scene, camera);
 		gJuliaDirty = false;
+	}
+}
+
+function AnimateOrbitMap() {
+	if (gOrbitMapDirty)
+	{
+		shaderMaterial.uniforms.sliceFractal.value = true;
+		shaderMaterial.uniforms.juliaMode.value = gJuliaMain;
+		shaderMaterial.uniforms.depthCheck.value = false;
+		shaderMaterial.uniforms.iterations.value = 20;
+		shaderMaterial.uniforms.resolution.value.set(500,300);
+		SetUniforms();
+		orbitMapWindowRenderer.render(scene, camera);
+		gOrbitMapDirty = false;
 	}
 }
 
@@ -522,21 +609,50 @@ function interpolateColors(value, color1, color2) {
 function AnimateOrbitViewer() {
 	if (gOrbitViewDirty)
 	{
-		if (gOrbitLocation.x!=0.0 || gOrbitLocation.y!=0.0 || gOrbitLocation.z==0.0)
+		if (gOrbitLocation.x!=0.0 || gOrbitLocation.y!=0.0 || gOrbitLocation.z!=0.0)
 		{
+/* GLSL Code
+    vec3 z = pos.xzy;
+
+    float dr = 1.0;
+    float r = 0.0;
+	float theta, phi;
+	
+	trap = vec4(abs(z),0.0);
+
+    for (int i = 0; i < maxIterations; i++) {
+       r = length(z);
+        if (r > escapeBound) break;
+		
+		float theta = atan(z.y / z.x);
+		float phi = asin(z.z / r);
+        dr = pow(r, power - 1.0) * power * dr + 1.0;
+
+        // Scale and rotate the point
+        float zr = pow(r, power);
+        theta = theta * power;
+        phi = phi * power;
+
+        // Convert back to cartesian coordinates
+        z = zr * vec3(cos(theta) * cos(phi), cos(phi) * sin(theta), sin(phi));
+		if (juliaMode)
+			z += juliaStart;
+        else
+			z += pos.xzy;
+	    trap = vec4(min(trap.xyz, abs(z)), i);
+    }
+
+    return 0.5 * log(r) * r / dr;*/
 			points = new Array();
+			
 			let r;
 			const escapeBound = 2.0; // Assuming a common escape bound; adjust if needed
 			const juliaMode = false; // Set this based on your needs
-			const juliaStart = new THREE.Vector3(0.355, 0.355, 0.355); // Adjust these values based on your needs
-			let z = new THREE.Vector3(0.5, 0.5, 0.5); // Example starting point; adjust as necessary
-			z.x = gOrbitLocation.x;
-			z.y = gOrbitLocation.y;
-			z.z = gOrbitLocation.z;
+			let z = new THREE.Vector3(gOrbitLocation.x, gOrbitLocation.z, gOrbitLocation.y);
 
 			for (var i=0; i<gIterations; i++)
 			{
-				points[i] = new THREE.Vector3(z.x, z.y, z.z);
+				points[i] = new THREE.Vector3(z.x, z.z, z.y);
 				r = z.length();
 				if (r > escapeBound) break;
 
@@ -553,12 +669,11 @@ function AnimateOrbitViewer() {
 					zr * Math.cos(phi) * Math.sin(theta),
 					zr * Math.sin(phi)
 				);
-
-	//    if (gJuliaMode) {
-	  //      z.add(juliaStart);
-		//} else {
-				z.add(new THREE.Vector3(gOrbitLocation.x, gOrbitLocation.z, gOrbitLocation.y));
-	  //  }	
+				
+				if (gJuliaMain)
+					z.add(gJuliaLocation);
+				else
+					z.add(new THREE.Vector3(gOrbitLocation.x, gOrbitLocation.z, gOrbitLocation.y));
 			}
 			
 			while (orbitViewScene.children.length>1)
@@ -614,11 +729,11 @@ function AnimateOrbitViewer() {
 	}
 }
 
-function SetCameraPosition()
+function SetCameraPosition(rotation)
 {
-	gCameraFrom.x = Math.sin(gRotation.x) * Math.cos(gRotation.y) * gDistance;
-	gCameraFrom.y = Math.sin(gRotation.y) * gDistance;
-	gCameraFrom.z = Math.cos(gRotation.x) * Math.cos(gRotation.y) * gDistance;
+	gCameraFrom.x = Math.sin(rotation.x) * Math.cos(rotation.y) * gDistance;
+	gCameraFrom.y = Math.sin(rotation.y) * gDistance;
+	gCameraFrom.z = Math.cos(rotation.x) * Math.cos(rotation.y) * gDistance;
 }
 
 // Render loop
@@ -626,14 +741,16 @@ function animate() {
     requestAnimationFrame(animate);
 	if (gDirty)
 	{
-		SetCameraPosition();
+		SetCameraPosition(gRotation);
 		
 		shaderMaterial.uniforms.power.value = gPower;
 		shaderMaterial.uniforms.depthCheck.value = false;
-		shaderMaterial.uniforms.juliaMode.value = false;
+		shaderMaterial.uniforms.juliaMode.value = gJuliaMain;
+		shaderMaterial.uniforms.sliceFractal.value = false;
 		shaderMaterial.uniforms.iterations.value = gIterations;
 		shaderMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
 		SetUniforms();
+		
 	
 		shaderMaterial.uniforms.cameraPosition2.value.set(gCameraFrom.x, gCameraFrom.y, gCameraFrom.z);
 		shaderMaterial.uniforms.cameraTarget.value.set(gCameraTo.x, gCameraTo.y, gCameraTo.z);
@@ -647,6 +764,9 @@ function animate() {
 
 	if (document.getElementById("OrbitViewer").hidden == false)
 		AnimateOrbitViewer();
+
+	if (document.getElementById("OrbitMap").hidden == false)
+		AnimateOrbitMap();
 }
 
 var renderTarget;
@@ -667,7 +787,8 @@ function readBackDepth(x, y) {
 	
 	shaderMaterial.uniforms.depthCheck.value = true;
 	shaderMaterial.uniforms.depthXY.value.set(x, window.innerHeight-y);
-	shaderMaterial.uniforms.juliaMode.value = false;
+	shaderMaterial.uniforms.juliaMode.value = gJuliaMain;
+	shaderMaterial.uniforms.sliceFractal.value = false;
 	shaderMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
 	SetUniforms();
 
@@ -681,17 +802,23 @@ function readBackDepth(x, y) {
 	return pixelBuffer;
 }
 
-var subWindowRenderer;
+var juliaWindowRenderer;
 var orbitViewRenderer;
 var orbitViewScene;
 var orbitViewCamera;
+var orbitMapWindowRenderer;
 
 function InitialiseSubWindows()
 {
 	// initialise julia preview window
 	const subWindowCanvas = document.getElementById('pickerCanvas');
-	subWindowRenderer = new THREE.WebGLRenderer({ canvas: subWindowCanvas });
-	subWindowRenderer.setSize(subWindowCanvas.width, subWindowCanvas.height);
+	juliaWindowRenderer = new THREE.WebGLRenderer({ canvas: subWindowCanvas });
+	juliaWindowRenderer.setSize(subWindowCanvas.width, subWindowCanvas.height);
+
+	// initialise orbit map window
+	const orbitMapWindowCanvas = document.getElementById('orbitMapCanvas');
+	orbitMapWindowRenderer = new THREE.WebGLRenderer({ canvas: orbitMapWindowCanvas });
+	orbitMapWindowRenderer.setSize(orbitMapWindowCanvas.width, orbitMapWindowCanvas.height);
 
 	//initialise orbit view window
 	const orbitViewCanvas = document.getElementById('orbitCanvas');
@@ -710,23 +837,10 @@ function InitialiseSubWindows()
     orbitViewScene.add(axesHelper);
 }
 
-// Handle window resize
-
-window.addEventListener('resize', function() {
-    var width = window.innerWidth;
-    var height = window.innerHeight;
-    renderer.setSize(width, height);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
-    shaderMaterial.uniforms.resolution.value.set(width, height);
-});
-
-const canvas = renderer.domElement;
-let gRotating = false;
 let gRotationDragCamFrom = { x: 0, y: 0, z:0 };
 let gRotationDragCamTo = { x: 0, y: 0, z:0 };
 let gRotation = {x: Math.PI/2, y: 0};
+let gJuliaRotation = {x: Math.PI/2, y: 0};
 let gDistance = 3;
 let gSphereRadius = 1;
 let gDragTheta = 0;
@@ -739,97 +853,164 @@ function min(a,b)
  else return b;
 }
 
-canvas.addEventListener('mousedown', (event) => {
-    pixelBuffer = new Float32Array(4);
-	pixelBuffer = readBackDepth(event.clientX, event.clientY);
+function AddListeners()
+{
+	const canvas = renderer.domElement;
+	canvas.addEventListener('mousedown', (event) => {
+		pixelBuffer = new Float32Array(4);
+		pixelBuffer = readBackDepth(event.clientX, event.clientY);
 
-	if (document.getElementById("JuliaSelector").hidden == false)
-	{
+		if (document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
+		{
+			if (pixelBuffer[3]>0)
+			{
+				gJuliaLocation.x = pixelBuffer[0];
+				gJuliaLocation.y = pixelBuffer[2];
+				gJuliaLocation.z = pixelBuffer[1];
+			}
+			gJuliaDirty = true;
+			gJuliaDragSelection = !gJuliaDragSelection;
+		}
+
 		if (pixelBuffer[3]>0)
 		{
-			gJuliaLocation.x = pixelBuffer[0];
-			gJuliaLocation.y = pixelBuffer[1];
-			gJuliaLocation.z = pixelBuffer[2];
+			let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
+			gDragDistance = camTo.length();
 		}
-		shaderMaterial.uniforms.juliaStart.value.set(gJuliaLocation.x, gJuliaLocation.y, gJuliaLocation.z);
-		gJuliaDirty = true;
-	}
+		
+		isDragging = true;
+		previousMousePosition = { x: event.clientX, y: event.clientY };
+	});
 
-	if (document.getElementById("OrbitViewer").hidden == false)
-	{
+	const canvasJulia = juliaWindowRenderer.domElement;
+	canvasJulia.addEventListener('mousedown', (event) => {
+		isJuliaDragging = true;
+		previousMousePosition = { x: event.clientX, y: event.clientY };
+	});
+
+	document.addEventListener('mousemove', (event) => {
+
+		if (document.getElementById("OrbitViewer").hidden == false)
+		{
+			pixelBuffer = new Float32Array(4);
+			pixelBuffer = readBackDepth(event.clientX, event.clientY);
+			if (pixelBuffer[3]>0)
+			{
+				gOrbitLocation.x = pixelBuffer[0];
+				gOrbitLocation.y = pixelBuffer[1];
+				gOrbitLocation.z = pixelBuffer[2];
+			}
+			gOrbitViewDirty = true;
+		}
+
+		if (document.getElementById("OrbitMap").hidden == false)
+		{
+			pixelBuffer = new Float32Array(4);
+			pixelBuffer = readBackDepth(event.clientX, event.clientY);
+			if (pixelBuffer[3]>0)
+			{
+				if (pixelBuffer[1]!=gSliceHeight)
+				{
+					gSliceHeight = pixelBuffer[1];
+					gOrbitMapDirty = true;
+				}
+			}
+		}
+
+		if (gJuliaDragSelection && document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
+		{
+			pixelBuffer = new Float32Array(4);
+			pixelBuffer = readBackDepth(event.clientX, event.clientY);
+			if (pixelBuffer[3]>0)
+			{
+				gJuliaLocation.x = pixelBuffer[0];
+				gJuliaLocation.y = pixelBuffer[2];
+				gJuliaLocation.z = pixelBuffer[1];
+			}
+			gJuliaDirty = true;
+		}
+
+		if (isDragging)
+		{
+			let deltaX = event.clientX - previousMousePosition.x;
+			let deltaY = event.clientY - previousMousePosition.y;
+			
+			gRotation.x -= gDragDistance * deltaX * 0.001;
+			gRotation.y += gDragDistance * deltaY * 0.001;
+			if (gRotation.y>Math.PI / 2) gRotation.y = Math.PI/2;
+			if (gRotation.y<-Math.PI / 2) gRotation.y = -Math.PI/2;
+
+			// Store the new mouse position for the next frame
+			previousMousePosition = { x: event.clientX, y: event.clientY };
+			gDirty = true;
+		}
+
+		if (isJuliaDragging)
+		{
+			console.log('julia drag');
+			let deltaX = event.clientX - previousMousePosition.x;
+			let deltaY = event.clientY - previousMousePosition.y;
+			
+			gJuliaRotation.x -= gDragDistance * deltaX * 0.001;
+			gJuliaRotation.y += gDragDistance * deltaY * 0.001;
+			if (gJuliaRotation.y>Math.PI / 2) gJuliaRotation.y = Math.PI/2;
+			if (gJuliaRotation.y<-Math.PI / 2) gJuliaRotation.y = -Math.PI/2;
+
+			// Store the new mouse position for the next frame
+			previousMousePosition = { x: event.clientX, y: event.clientY };
+			gJuliaDirty = true;
+		}
+	});
+
+	document.addEventListener('mouseup', () => {
+			console.log('Mouse Up');
+		isDragging = false;
+		isJuliaDragging = false;
+	});
+
+	window.addEventListener('wheel', function(event) {
+		var delta = 1;
+		var origin = 1;
+		pixelBuffer = new Float32Array(4);
+		pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
 		if (pixelBuffer[3]>0)
 		{
-			gOrbitLocation.x = pixelBuffer[0];
-			gOrbitLocation.y = pixelBuffer[1];
-			gOrbitLocation.z = pixelBuffer[2];
+			let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
+			delta = camTo.length();
 		}
-		gOrbitViewDirty = true;
-	}
-	
-	if (pixelBuffer[3]>0)
-	{
-		gRotating = true;
-		let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
-		gDragDistance = camTo.length();
-	}
-	
-	isDragging = true;
-    previousMousePosition = { x: event.clientX, y: event.clientY };
+		let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
+		origin = camToCentre.length() - delta;
+
+		if (event.deltaY > 0) {
+			console.log('Scrolled down');
+			delta = delta*1.08;
+			gDirty = true;
+			gJuliaDirty = true;
+		} else if (event.deltaY < 0) {
+			console.log('Scrolled up');
+			delta = delta*0.94;
+			gDirty = true;
+			gJuliaDirty = true;
+		}
+		
+		gDistance = origin+delta;
+
+		// Prevent default scrolling behavior if necessary
+		// event.preventDefault();
+	}, false);
+}
+
+// Handle window resize
+
+window.addEventListener('resize', function() {
+    var width = window.innerWidth;
+    var height = window.innerHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+
+    shaderMaterial.uniforms.resolution.value.set(width, height);
 });
-
-document.addEventListener('mousemove', (event) => {
-    if (!isDragging) return;
-
-    let deltaX = event.clientX - previousMousePosition.x;
-    let deltaY = event.clientY - previousMousePosition.y;
-	
-	gRotation.x -= gDragDistance * deltaX * 0.001;
-	gRotation.y += gDragDistance * deltaY * 0.001;
-	if (gRotation.y>Math.PI / 2) gRotation.y = Math.PI/2;
-	if (gRotation.y<-Math.PI / 2) gRotation.y = -Math.PI/2;
-
-    // Store the new mouse position for the next frame
-    previousMousePosition = { x: event.clientX, y: event.clientY };
-
-	gJuliaDirty = true;
-	gDirty = true;
-});
-
-document.addEventListener('mouseup', () => {
-    isDragging = false;
-	gRotating = false;
-});
-
-window.addEventListener('wheel', function(event) {
-    var delta = 1;
-	var origin = 1;
-	pixelBuffer = new Float32Array(4);
-	pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
-	if (pixelBuffer[3]>0)
-	{
-		let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
-		delta = camTo.length();
- 	}
-	let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
-	origin = camToCentre.length() - delta;
-
-    if (event.deltaY > 0) {
-        console.log('Scrolled down');
-		delta = delta*1.08;
-		gDirty = true;
-		gJuliaDirty = true;
-    } else if (event.deltaY < 0) {
-        console.log('Scrolled up');
-        delta = delta*0.94;
-		gDirty = true;
-		gJuliaDirty = true;
-    }
-	
-	gDistance = origin+delta;
-
-    // Prevent default scrolling behavior if necessary
-    // event.preventDefault();
-}, false);
 
 Initialise();
 
@@ -968,6 +1149,17 @@ function guiCopyURL()
     });
 }
 
+function guiJuliaToMain()
+{
+ gJuliaMain = !gJuliaMain;
+ if (gJuliaMain) document.getElementById("juliaRight").textContent = "<======";
+ if (!gJuliaMain) document.getElementById("juliaRight").textContent = "======>";
+ gDirty=true;
+ gJuliaDirty=true;
+ gOrbitMapDirty=true;
+ gOrbitViewDirty=true;
+}
+
 function Initialise()
 {
 document.write('\
@@ -1013,13 +1205,11 @@ Zoom : 1\
 \
 <DIV id="JuliaSelector" class="MBPanel">\
 <CANVAS style="canvas1" id="pickerCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
-<DIV id="JuliaStats">\
-</DIV>\
+<BUTTON id="juliaRight" onclick="guiJuliaToMain()">======></BUTTON>\
 </DIV>\
 \
 <DIV id="OrbitViewer" class="MBPanel">\
 <CANVAS style="canvas1" id="orbitCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
-<BUTTON id="selectOrbit" onclick="guiSelectNewOrbit()">Select New Orbit : Always</BUTTON>\
 </DIV>\
 \
 <DIV id="OrbitMap" class="MBPanel">\
@@ -1030,6 +1220,7 @@ ReadQueryString();
 guiSetInitialParams();
 guiMenuHide();
 InitialiseSubWindows();
+AddListeners();
 animate();
 
 }
