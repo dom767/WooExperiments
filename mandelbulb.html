@@ -292,16 +292,17 @@ void main() {
 	else {
 		if (XOrbitColour)
 		{
-		 trapColour += trap.xxx * mix(XBColour, XEColour, trap.x);
+		 trapColour += mix(XBColour, XEColour, trap.x);
 		}
 		if (YOrbitColour)
 		{
-		 trapColour += trap.yyy * mix(YBColour, YEColour, trap.y);
+		 trapColour += mix(YBColour, YEColour, trap.y);
 		}
 		if (ZOrbitColour)
 		{
-		 trapColour += trap.zzz * mix(ZBColour, ZEColour, trap.z);
+		 trapColour += mix(ZBColour, ZEColour, trap.z);
 		}
+		trapColour /= (XOrbitColour?1.0:0.0)+(YOrbitColour?1.0:0.0)+(ZOrbitColour?1.0:0.0);
 		trapColour = clamp(trapColour, 0.0, 1.0);
 	}
 
@@ -352,6 +353,84 @@ let gXEColour = { r: 1.0, g: 0.0, b: 0.0}
 let gYEColour = { r: 0.0, g: 1.0, b: 0.0}
 let gZEColour = { r: 0.0, g: 0.0, b: 1.0}
 let gHSLBlend = true;
+let gURL = "";
+
+function hexToFloat(hex)
+{
+    let intValue = parseInt(hex, 16);
+    return intValue / 255;
+}
+
+function parseColour(str)
+{
+ var vr = hexToFloat(str.substring(0, 2));
+ var vg = hexToFloat(str.substring(2, 4));
+ var vb = hexToFloat(str.substring(4, 6));
+ return { r:vr, g:vg, b:vb};
+}
+
+function ReadQueryString()
+{
+ var urlParams;
+ var match, pl= /\+/g, search = /([^&=]+)=?([^&]*)/g;
+ var decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+ var query  = window.location.search.substring(1);
+
+ urlParams = {};
+ while (match = search.exec(query))
+  urlParams[decode(match[1])] = decode(match[2]);
+
+ gXOrbitColour = false;
+ gYOrbitColour = false;
+ gZOrbitColour = false;
+ if (urlParams["x"] != null)
+ {
+  gXBColour = parseColour(urlParams["x"].substring(0, 6));
+  gXEColour = parseColour(urlParams["x"].substring(6, 12));
+  gXOrbitColour = true;
+ }
+ if (urlParams["y"] != null)
+ {
+  gYBColour = parseColour(urlParams["y"].substring(0, 6));
+  gYEColour = parseColour(urlParams["y"].substring(6, 12));
+  gYOrbitColour = true;
+ }
+ if (urlParams["z"] != null)
+ {
+  gZBColour = parseColour(urlParams["z"].substring(0, 6));
+  gZEColour = parseColour(urlParams["z"].substring(6, 12));
+  gZOrbitColour = true;
+ }
+/* if (urlParams["m"] != null)
+  gJuliaMode = (parseInt(urlParams["m"])>0 ? true : false);
+ if (urlParams["jx"] != null)
+  gJuliaX = parseFloat(urlParams["jx"]);
+ if (urlParams["jy"] != null)
+  gJuliaY = parseFloat(urlParams["jy"]);*/
+}
+
+function floatToHex(num)
+{
+    let intValue = Math.round(num * 255.99);
+    let hexString = intValue.toString(16);
+    return hexString.padStart(2, '0');
+}
+
+function convertToHex(col)
+{
+ return floatToHex(col.r)+floatToHex(col.g)+floatToHex(col.b);
+}
+
+function replaceURL()
+{
+ if (window.history.replaceState)
+ {
+  url = window.location.href.split('/').pop().replace(/\#(.*?)$/, '').replace(/\?(.*?)$/, '');
+  url = url.split('.');  // separates filename and extension
+  gURL = url[0]+"?x="+convertToHex(gXBColour)+convertToHex(gXEColour)+"&y="+convertToHex(gYBColour)+convertToHex(gYEColour)+"&z="+convertToHex(gZBColour)+convertToHex(gZEColour);
+  if (!window.location.origin.includes("file://")) window.history.replaceState({}, null, gURL);
+ }
+}
 
 // Create a WebGL renderer
 var renderer = new THREE.WebGLRenderer();
@@ -842,7 +921,8 @@ function guiReadParameters(resize, rerender)
  gYEColour = getGuiRGB('yeColorPicker');
  gZEColour = getGuiRGB('zeColorPicker');
  gHSLBlend = getGuiBool('HSLBlend');
- if (rerender) gDirty=true; 
+ if (rerender) gDirty=true;
+ replaceURL();
 }
 
 function guiMenuVisibility(settings, julia, orbit, orbitMap)
@@ -876,6 +956,16 @@ function guiMenuOrbitMapViewer()
 function guiMenuHide()
 {
  guiMenuVisibility(false, false, false);
+}
+
+function guiCopyURL()
+{
+    let textToCopy = "This is the text to be copied.";
+    navigator.clipboard.writeText(gURL).then(function() {
+        console.log('Text successfully copied to clipboard!');
+    }).catch(function(err) {
+        console.error('Unable to copy text to clipboard:', err);
+    });
 }
 
 function Initialise()
@@ -918,6 +1008,7 @@ Zoom : 1\
 <BR><INPUT id="zColourEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> Z orbit value</INPUT>\
 <BR><DIV class="MBLabel" >Colour Gradient</DIV><input class="MBColourInput" type="color" id="zbColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)"><input class="MBColourInput" type="color" id="zeColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)">\
 <BR><INPUT id="HSLBlend" type="checkbox" onchange="guiReadParameters(false, true)"> HSL Blending</INPUT>\
+<BR><BUTTON id="copyURL" onclick="guiCopyURL()">Copy URL to Clipboard</BUTTON>\
 </DIV>\
 \
 <DIV id="JuliaSelector" class="MBPanel">\
@@ -935,6 +1026,7 @@ Zoom : 1\
 <CANVAS style="canvas1" id="orbitMapCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
 </DIV>');
 
+ReadQueryString();
 guiSetInitialParams();
 guiMenuHide();
 InitialiseSubWindows();
