@@ -486,12 +486,12 @@ function ReadQueryString()
  if (urlParams["g"]!=null) gEstimateIterations = parseFloat(urlParams["g"]);
  if (urlParams["h"]!=null) gDEFactor = parseFloat(urlParams["h"]);
  if (urlParams["k"]!=null) gHSLBlend = (urlParams["k"]=='t' ? true : false);
- if (urlParams["l"]!=null) gJuliaMain = (urlParams["l1"]=='t' ? true : false);
+ if (urlParams["l"]!=null) if (urlParams["l"]=='t') guiJuliaToMain();
 }
 
 function floatToHex(num)
 {
-    let intValue = Math.round(num * 255.99);
+    let intValue = Math.floor(num * 255.99);
     let hexString = intValue.toString(16);
     return hexString.padStart(2, '0');
 }
