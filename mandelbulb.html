@@ -111,8 +111,7 @@ float distanceEstimate(vec3 point, out vec4 trap) {
     return mandelbulbDE(point, trap);
 }
 
-vec3 estimateNormal(vec3 point) {
-    const float eps = 0.0001;
+vec3 estimateNormal(vec3 point, float eps) {
 	vec4 trap;
     float dx = distanceEstimate(point + vec3(eps, 0.0, 0.0), trap) - distanceEstimate(point - vec3(eps, 0.0, 0.0), trap);
     float dy = distanceEstimate(point + vec3(0.0, eps, 0.0), trap) - distanceEstimate(point - vec3(0.0, eps, 0.0), trap);
@@ -311,7 +310,7 @@ void main() {
 		 return;
 		}
 		
-		vec3 normal = estimateNormal(hitPoint);
+		vec3 normal = estimateNormal(hitPoint, epsilon);
 		
 		// Define a directional light source
 		vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0)); // Example light direction
