@@ -322,7 +322,7 @@ void main() {
     // Combine lambertian and ambient lighting
     vec3 baseColor = vec3(0.8, 0.5, 0.3); 
 	vec3 trapColour = GetFractalColour(trap);
-    vec3 finalColor = trapColour * (ambientColor + lambert);
+    vec3 finalColor = trapColour * (0.5*ambientColor + lambert);
 	gl_FragColor = vec4(finalColor, 1.0);
     } else {
 		if (depthCheck)
@@ -362,7 +362,6 @@ let gDEFactor = 0.5;
 let gCameraFrom = { x: 0, y: 0, z: 3};
 let gCameraTo = { x: 0, y: 0, z: 0};
 let gFOV = Math.PI / 3;
-let gSliceFractal = false;
 let gSliceHeight = 0.0;
 let gXOrbitColour = true;
 let gYOrbitColour = true;
@@ -1038,7 +1037,6 @@ function guiSetInitialParams()
  setGuiValue('baseEpsilonFactor', gBaseEpsilonFactor);
  setGuiValue('estimateIterations', gEstimateIterations);
  setGuiValue('DEFactor', gDEFactor);
- setGuiBool('sliceFractal', gSliceFractal);
  setGuiBool('xColourEnabled', gXOrbitColour);
  setGuiBool('yColourEnabled', gYOrbitColour);
  setGuiBool('zColourEnabled', gZOrbitColour);
@@ -1086,7 +1084,6 @@ function guiReadParameters(resize, rerender)
  gBaseEpsilonFactor = getGuiFloat('baseEpsilonFactor');
  gEstimateIterations = getGuiInt('estimateIterations');
  gDEFactor = getGuiFloat('DEFactor');
- gSliceFractal = getGuiBool('sliceFractal');
  gXOrbitColour = getGuiBool('xColourEnabled');
  gYOrbitColour = getGuiBool('yColourEnabled');
  gZOrbitColour = getGuiBool('zColourEnabled');
@@ -1178,17 +1175,11 @@ Zoom : 1\
 </DIV>\
 <BR>Settings\
 <BR><INPUT id="ScreenSpaceDE" checked="true" type="checkbox" onchange="guiReadParameters(false, true)"> Screen Space DE</INPUT>\
-<BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters(false, true)"> Julia Mode</INPUT>\
-<BR><INPUT id="sliceFractal" type="checkbox" onchange="guiReadParameters(false, true)"> Slice</INPUT>\
-<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters(false, false)"> Scale Colour</INPUT>\
 <BR><DIV class="MBLabel" >Power</DIV><INPUT id="power" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >MB Iterations</DIV><INPUT id="iterations" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >Detail Factor</DIV><INPUT id="baseEpsilonFactor" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >DE Iterations</DIV><INPUT id="estimateIterations" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >DE Factor</DIV><INPUT id="DEFactor" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
-<BR><INPUT id="fullScreen" type="checkbox" onchange="guiReadParameters(true, true)"> Fullscreen</INPUT>\
-<BR><DIV class="MBLabel" >Width</DIV><INPUT id="width" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
-<BR><DIV class="MBLabel" >Height</DIV><INPUT id="height" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
 <BR><INPUT id="xColourEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> X orbit value</INPUT>\
 <BR><DIV class="MBLabel" >Colour Gradient</DIV><input class="MBColourInput" type="color" id="xbColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)"><input class="MBColourInput" type="color" id="xeColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)">\
 <BR><INPUT id="yColourEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> Y orbit value</INPUT>\
