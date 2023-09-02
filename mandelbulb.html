@@ -847,33 +847,124 @@ function min(a,b)
  else return b;
 }
 
+function DeviceDown(devx, devy)
+{
+	pixelBuffer = new Float32Array(4);
+	pixelBuffer = readBackDepth(devx, devy);
+
+	if (document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
+	{
+		if (pixelBuffer[3]>0)
+		{
+			gJuliaLocation.x = pixelBuffer[0];
+			gJuliaLocation.y = pixelBuffer[2];
+			gJuliaLocation.z = pixelBuffer[1];
+		}
+		gJuliaDirty = true;
+		gJuliaDragSelection = !gJuliaDragSelection;
+	}
+
+	if (pixelBuffer[3]>0)
+	{
+		let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
+		gDragDistance = camTo.length();
+	}
+	
+	isDragging = true;
+	previousMousePosition = { x: devx, y: devy };
+}
+
+function DeviceMove(devx, devy)
+{
+	if (document.getElementById("OrbitViewer").hidden == false)
+	{
+		pixelBuffer = new Float32Array(4);
+		pixelBuffer = readBackDepth(devx, devy);
+		if (pixelBuffer[3]>0)
+		{
+			gOrbitLocation.x = pixelBuffer[0];
+			gOrbitLocation.y = pixelBuffer[1];
+			gOrbitLocation.z = pixelBuffer[2];
+		}
+		gOrbitViewDirty = true;
+	}
+
+	if (document.getElementById("OrbitMap").hidden == false)
+	{
+		pixelBuffer = new Float32Array(4);
+		pixelBuffer = readBackDepth(devx, devy);
+		if (pixelBuffer[3]>0)
+		{
+			if (pixelBuffer[1]!=gSliceHeight)
+			{
+				gSliceHeight = pixelBuffer[1];
+				gOrbitMapDirty = true;
+			}
+		}
+	}
+
+	if (gJuliaDragSelection && document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
+	{
+		pixelBuffer = new Float32Array(4);
+		pixelBuffer = readBackDepth(devx, devy);
+		if (pixelBuffer[3]>0)
+		{
+			gJuliaLocation.x = pixelBuffer[0];
+			gJuliaLocation.y = pixelBuffer[2];
+			gJuliaLocation.z = pixelBuffer[1];
+		}
+		gJuliaDirty = true;
+	}
+
+	if (isDragging)
+	{
+		let deltaX = devx - previousMousePosition.x;
+		let deltaY = devy - previousMousePosition.y;
+		
+		gRotation.x -= gDragDistance * deltaX * 0.001;
+		gRotation.y += gDragDistance * deltaY * 0.001;
+		if (gRotation.y>Math.PI / 2) gRotation.y = Math.PI/2;
+		if (gRotation.y<-Math.PI / 2) gRotation.y = -Math.PI/2;
+
+		// Store the new mouse position for the next frame
+		previousMousePosition = { x: devx, y: devy };
+		gDirty = true;
+	}
+
+	if (isJuliaDragging)
+	{
+		let deltaX = devx - previousMousePosition.x;
+		let deltaY = devy - previousMousePosition.y;
+		
+		gJuliaRotation.x -= gDragDistance * deltaX * 0.001;
+		gJuliaRotation.y += gDragDistance * deltaY * 0.001;
+		if (gJuliaRotation.y>Math.PI / 2) gJuliaRotation.y = Math.PI/2;
+		if (gJuliaRotation.y<-Math.PI / 2) gJuliaRotation.y = -Math.PI/2;
+
+		// Store the new mouse position for the next frame
+		previousMousePosition = { x: devx, y: devy };
+		gJuliaDirty = true;
+	}
+}
+
+function DeviceUp()
+{
+	isDragging = false;
+	isJuliaDragging = false;
+}
+
 function AddListeners()
 {
 	const canvas = renderer.domElement;
+    
+	canvas.addEventListener('touchstart', function(event) {
+        // Prevent default behavior (optional)
+        event.preventDefault();
+		DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+    });
+
 	canvas.addEventListener('mousedown', (event) => {
-		pixelBuffer = new Float32Array(4);
-		pixelBuffer = readBackDepth(event.clientX, event.clientY);
-
-		if (document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
-		{
-			if (pixelBuffer[3]>0)
-			{
-				gJuliaLocation.x = pixelBuffer[0];
-				gJuliaLocation.y = pixelBuffer[2];
-				gJuliaLocation.z = pixelBuffer[1];
-			}
-			gJuliaDirty = true;
-			gJuliaDragSelection = !gJuliaDragSelection;
-		}
-
-		if (pixelBuffer[3]>0)
-		{
-			let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
-			gDragDistance = camTo.length();
-		}
-		
-		isDragging = true;
-		previousMousePosition = { x: event.clientX, y: event.clientY };
+		DeviceDown(event.clientX, event.clientY);
 	});
 
 	const canvasJulia = juliaWindowRenderer.domElement;
@@ -882,85 +973,24 @@ function AddListeners()
 		previousMousePosition = { x: event.clientX, y: event.clientY };
 	});
 
+	document.addEventListener('touchmove', function(event) {
+        // Prevent default behavior (optional)
+        event.preventDefault();
+
+		DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+    });
+
 	document.addEventListener('mousemove', (event) => {
-
-		if (document.getElementById("OrbitViewer").hidden == false)
-		{
-			pixelBuffer = new Float32Array(4);
-			pixelBuffer = readBackDepth(event.clientX, event.clientY);
-			if (pixelBuffer[3]>0)
-			{
-				gOrbitLocation.x = pixelBuffer[0];
-				gOrbitLocation.y = pixelBuffer[1];
-				gOrbitLocation.z = pixelBuffer[2];
-			}
-			gOrbitViewDirty = true;
-		}
-
-		if (document.getElementById("OrbitMap").hidden == false)
-		{
-			pixelBuffer = new Float32Array(4);
-			pixelBuffer = readBackDepth(event.clientX, event.clientY);
-			if (pixelBuffer[3]>0)
-			{
-				if (pixelBuffer[1]!=gSliceHeight)
-				{
-					gSliceHeight = pixelBuffer[1];
-					gOrbitMapDirty = true;
-				}
-			}
-		}
-
-		if (gJuliaDragSelection && document.getElementById("JuliaSelector").hidden == false && !gJuliaMain)
-		{
-			pixelBuffer = new Float32Array(4);
-			pixelBuffer = readBackDepth(event.clientX, event.clientY);
-			if (pixelBuffer[3]>0)
-			{
-				gJuliaLocation.x = pixelBuffer[0];
-				gJuliaLocation.y = pixelBuffer[2];
-				gJuliaLocation.z = pixelBuffer[1];
-			}
-			gJuliaDirty = true;
-		}
-
-		if (isDragging)
-		{
-			let deltaX = event.clientX - previousMousePosition.x;
-			let deltaY = event.clientY - previousMousePosition.y;
-			
-			gRotation.x -= gDragDistance * deltaX * 0.001;
-			gRotation.y += gDragDistance * deltaY * 0.001;
-			if (gRotation.y>Math.PI / 2) gRotation.y = Math.PI/2;
-			if (gRotation.y<-Math.PI / 2) gRotation.y = -Math.PI/2;
-
-			// Store the new mouse position for the next frame
-			previousMousePosition = { x: event.clientX, y: event.clientY };
-			gDirty = true;
-		}
-
-		if (isJuliaDragging)
-		{
-			console.log('julia drag');
-			let deltaX = event.clientX - previousMousePosition.x;
-			let deltaY = event.clientY - previousMousePosition.y;
-			
-			gJuliaRotation.x -= gDragDistance * deltaX * 0.001;
-			gJuliaRotation.y += gDragDistance * deltaY * 0.001;
-			if (gJuliaRotation.y>Math.PI / 2) gJuliaRotation.y = Math.PI/2;
-			if (gJuliaRotation.y<-Math.PI / 2) gJuliaRotation.y = -Math.PI/2;
-
-			// Store the new mouse position for the next frame
-			previousMousePosition = { x: event.clientX, y: event.clientY };
-			gJuliaDirty = true;
-		}
+		DeviceMove(event.clientX, event.clientY);
 	});
 
 	document.addEventListener('mouseup', () => {
-			console.log('Mouse Up');
-		isDragging = false;
-		isJuliaDragging = false;
+		DeviceUp();
 	});
+
+	document.addEventListener('touchend', function(event) {
+		DeviceUp();
+    });
 
 	window.addEventListener('wheel', function(event) {
 		var delta = 1;
@@ -976,12 +1006,10 @@ function AddListeners()
 		origin = camToCentre.length() - delta;
 
 		if (event.deltaY > 0) {
-			console.log('Scrolled down');
 			delta = delta*1.08;
 			gDirty = true;
 			gJuliaDirty = true;
 		} else if (event.deltaY < 0) {
-			console.log('Scrolled up');
 			delta = delta*0.94;
 			gDirty = true;
 			gJuliaDirty = true;
@@ -1002,6 +1030,21 @@ window.addEventListener('resize', function() {
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+
+    const element = document.querySelector('.MBMenu2');
+
+	if (width<880)
+	{
+        element.style.top = 'auto';
+        element.style.bottom = '41px';
+    }
+	else {
+        // When the viewport width is greater than 800px
+        element.style.top = '41px';
+        element.style.bottom = 'auto';
+	}
+	
+	gDirty=true;
 
     shaderMaterial.uniforms.resolution.value.set(width, height);
 });
@@ -1047,6 +1090,9 @@ function guiSetInitialParams()
  setGuiRGB('yeColorPicker', gYEColour);
  setGuiRGB('zeColorPicker', gZEColour);
  setGuiBool('HSLBlend', gHSLBlend);
+ setGuiValue('JuliaX', gJuliaLocation.x);
+ setGuiValue('JuliaY', gJuliaLocation.x);
+ setGuiValue('JuliaZ', gJuliaLocation.x);
 }
 
 function getGuiBool(id)
@@ -1094,6 +1140,9 @@ function guiReadParameters(resize, rerender)
  gYEColour = getGuiRGB('yeColorPicker');
  gZEColour = getGuiRGB('zeColorPicker');
  gHSLBlend = getGuiBool('HSLBlend');
+ gJuliaLocation.x = getGuiFloat('JuliaX');
+ gJuliaLocation.y = getGuiFloat('JuliaY');
+ gJuliaLocation.z = getGuiFloat('JuliaZ');
  if (rerender) gDirty=true;
  replaceURL();
 }
@@ -1180,6 +1229,7 @@ Zoom : 1\
 <BR><DIV class="MBLabel" >Detail Factor</DIV><INPUT id="baseEpsilonFactor" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >DE Iterations</DIV><INPUT id="estimateIterations" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><DIV class="MBLabel" >DE Factor</DIV><INPUT id="DEFactor" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
+<BR><DIV class="MBLabel" >Julia Location</DIV><INPUT id="JuliaX" class="MBInput" onchange="guiReadParameters(false, true)"/></input><INPUT id="JuliaY" class="MBInput" onchange="guiReadParameters(false, true)"/></input><INPUT id="JuliaZ" class="MBInput" onchange="guiReadParameters(false, true)"/></input>\
 <BR><INPUT id="xColourEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> X orbit value</INPUT>\
 <BR><DIV class="MBLabel" >Colour Gradient</DIV><input class="MBColourInput" type="color" id="xbColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)"><input class="MBColourInput" type="color" id="xeColorPicker" value="#ff0000" onchange="guiReadParameters(false, true)">\
 <BR><INPUT id="yColourEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> Y orbit value</INPUT>\
