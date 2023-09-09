@@ -953,6 +953,28 @@ function DeviceUp()
 	isJuliaDragging = false;
 }
 
+var gInitialDistance=0;
+
+function SetZoom(zoomMultiple)
+{
+	var delta = 1;
+	var origin = 1;
+	pixelBuffer = new Float32Array(4);
+	pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
+	if (pixelBuffer[3]>0)
+	{
+		let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
+		delta = camTo.length();
+	}
+	let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
+	origin = camToCentre.length() - delta;
+	delta = delta*zoomMultiple;
+	
+	gDistance = origin+delta;
+	gDirty = true;
+	gJuliaDirty = true;
+}
+
 function AddListeners()
 {
 	const canvas = renderer.domElement;
@@ -960,7 +982,15 @@ function AddListeners()
 	canvas.addEventListener('touchstart', function(event) {
         // Prevent default behavior (optional)
         event.preventDefault();
-		DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			DeviceUp();
+			var vec1 = new THREE.Vector2(event.touches[0].pageX, event.touches[0].pageY);
+			var vec2 = new THREE.Vector2(event.touches[1].pageX, event.touches[1].pageY);
+			gInitialDistance = vec1.distanceTo(vec2);
+		}
     });
 
 	canvas.addEventListener('mousedown', (event) => {
@@ -974,10 +1004,25 @@ function AddListeners()
 	});
 
 	document.addEventListener('touchmove', function(event) {
-        // Prevent default behavior (optional)
-        event.preventDefault();
+		if (event.touches.length === 1)
+		{
+			DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			// Prevent default behavior (optional)
+			event.preventDefault();
 
-		DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+			var vec1 = new THREE.Vector2(event.touches[0].pageX, event.touches[0].pageY);
+			var vec2 = new THREE.Vector2(event.touches[1].pageX, event.touches[1].pageY);
+			var distance = vec1.distanceTo(vec2);
+			if (distance != gInitialDistance)
+			{
+				SetZoom(gInitialDistance/distance);
+				gInitialDistance = distance;
+			}
+		}
+		
+
     });
 
 	document.addEventListener('mousemove', (event) => {
@@ -989,51 +1034,33 @@ function AddListeners()
 	});
 
 	document.addEventListener('touchend', function(event) {
-		DeviceUp();
+		if (event.touches.length === 0) {
+			DeviceUp();
+		}
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
     });
 
 	window.addEventListener('wheel', function(event) {
-		var delta = 1;
-		var origin = 1;
-		pixelBuffer = new Float32Array(4);
-		pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
-		if (pixelBuffer[3]>0)
-		{
-			let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
-			delta = camTo.length();
-		}
-		let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
-		origin = camToCentre.length() - delta;
-
 		if (event.deltaY > 0) {
-			delta = delta*1.08;
-			gDirty = true;
-			gJuliaDirty = true;
+			SetZoom(1.08);
 		} else if (event.deltaY < 0) {
-			delta = delta*0.94;
-			gDirty = true;
-			gJuliaDirty = true;
+			SetZoom(0.94);
 		}
-		
-		gDistance = origin+delta;
 
 		// Prevent default scrolling behavior if necessary
-		// event.preventDefault();
+//		event.preventDefault();
 	}, false);
 }
 
 // Handle window resize
 
-window.addEventListener('resize', function() {
-    var width = window.innerWidth;
-    var height = window.innerHeight;
-    renderer.setSize(width, height);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
+function placeMenu(w)
+{
     const element = document.querySelector('.MBMenu2');
 
-	if (width<880)
+	if (w<880)
 	{
         element.style.top = 'auto';
         element.style.bottom = '41px';
@@ -1043,7 +1070,17 @@ window.addEventListener('resize', function() {
         element.style.top = '41px';
         element.style.bottom = 'auto';
 	}
-	
+}
+
+window.addEventListener('resize', function() {
+    var width = window.innerWidth;
+    var height = window.innerHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+
+	placeMenu(width);
+
 	gDirty=true;
 
     shaderMaterial.uniforms.resolution.value.set(width, height);
@@ -1258,6 +1295,7 @@ guiSetInitialParams();
 guiMenuHide();
 InitialiseSubWindows();
 AddListeners();
+placeMenu(window.innerWidth);
 animate();
 
 }
