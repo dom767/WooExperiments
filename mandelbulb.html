@@ -2,21 +2,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mandelbulb with Three.js and GLSL</title>
+    <title>Mandelbulb Viewer - woofractal.com</title>
 <style>
 body, html {margin:0;padding:0;overflow:hidden;width:100%;height:100%;}
-* {font-family:verdana;font-size:14;margin:0;padding:0;}
+* {font-family:verdana;font-size:14px;margin:0;padding:0;}
 canvas1 {display:block;}
-div.MBMenu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:525px;height:40px;top:50px;left:50px;color:white;}
-.MBMenu2 {position:fixed;font-size:12px;color:#AAA;padding:0px;border-width:0px;background-color:rgba(1,0,1,0.8);width:220px;height:36px;text-align:center;top:41px;right:50px;padding:10px;}
-.MBMenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
+div.MBMenu {position:fixed;padding:0;border-width:0;background-color:rgba(0,1,0,0.1);width:520px;height:40px;top:50px;left:50px;color:white;}
+.MBMenu2 {position:fixed;font-size:12px;color:#AAA;padding:0;border-width:0;background-color:rgba(1,0,1,0.8);width:220px;height:36px;text-align:center;top:41px;right:50px;padding:10px;}
+.MBMenuOpt {float:left;border-width:0;background-color:rgba(1,0,1,0.8);width:130px;height:40px;color:white;text-align:center;line-height:40px;}
 .MBMenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
-.MBPanel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:505px;top:90px;left:50px;color:white;}
+.MBPanel {position:fixed;border-width:0;padding:10;background-color:rgba(0,0,0,0.5);width:500px;top:90px;left:50px;color:white;}
 .MBLabel {padding:2px;width:120px;float:left;}
 .MBInput {padding:2px;width:120px;style="text-align:right";}
 .MBColourInput {padding:0px;width:120px;}
 a {color:#FFF;font-size:16px;text-decoration:none;}
 a:hover {color:#F93;}
+
+@media only screen and (max-width: 600px) {
+    * {font-family:verdana;font-size:10px;margin:0;padding:0;}
+	div.MBMenu {width:320px;height:20px;top:25px;left:25px;}
+    .MBMenu2 {font-size:8px;width:160px;height:26px;top:auto;bottom:20.5px;right:25px;padding:5px;}
+    .MBMenuOpt {width:80px;height:20px;line-height:20px;}
+    .MBPanel {width:300px;top:45px;left:25px;}
+    .MBLabel, .MBInput, .MBColourInput {padding:1px;width:80px;}
+    a {font-size:12px;}
+}
+
+@media only screen and (min-width: 601px) and (max-width: 880px) {
+    .MBMenu2 {font-size:12px;width:220px;height:36px;top:auto;bottom:41px;right:50px;padding:10px;}
+}
 </style>
 </head>
 <body>
@@ -376,6 +390,8 @@ let gHSLBlend = true;
 let gJuliaMain = false;
 let gJuliaDragSelection = false;
 let gURL = "";
+let subWindowWidth=500;
+let subWindowHeight=300;
 
 function hexToFloat(hex)
 {
@@ -568,7 +584,7 @@ function AnimateJulia() {
 		shaderMaterial.uniforms.juliaMode.value = !gJuliaMain;
 		shaderMaterial.uniforms.sliceFractal.value = false;
 		shaderMaterial.uniforms.iterations.value = 20;
-		shaderMaterial.uniforms.resolution.value.set(500,300);
+		shaderMaterial.uniforms.resolution.value.set(subWindowWidth,subWindowHeight);
 		SetUniforms();
 		shaderMaterial.uniforms.cameraPosition2.value.set(gCameraFrom.x, gCameraFrom.y, gCameraFrom.z);
 		shaderMaterial.uniforms.cameraTarget.value.set(gCameraTo.x, gCameraTo.y, gCameraTo.z);
@@ -584,7 +600,7 @@ function AnimateOrbitMap() {
 		shaderMaterial.uniforms.juliaMode.value = gJuliaMain;
 		shaderMaterial.uniforms.depthCheck.value = false;
 		shaderMaterial.uniforms.iterations.value = 20;
-		shaderMaterial.uniforms.resolution.value.set(500,300);
+		shaderMaterial.uniforms.resolution.value.set(subWindowWidth,subWindowHeight);
 		SetUniforms();
 		orbitMapWindowRenderer.render(scene, camera);
 		gOrbitMapDirty = false;
@@ -607,38 +623,6 @@ function AnimateOrbitViewer() {
 	{
 		if (gOrbitLocation.x!=0.0 || gOrbitLocation.y!=0.0 || gOrbitLocation.z!=0.0)
 		{
-/* GLSL Code
-    vec3 z = pos.xzy;
-
-    float dr = 1.0;
-    float r = 0.0;
-	float theta, phi;
-	
-	trap = vec4(abs(z),0.0);
-
-    for (int i = 0; i < maxIterations; i++) {
-       r = length(z);
-        if (r > escapeBound) break;
-		
-		float theta = atan(z.y / z.x);
-		float phi = asin(z.z / r);
-        dr = pow(r, power - 1.0) * power * dr + 1.0;
-
-        // Scale and rotate the point
-        float zr = pow(r, power);
-        theta = theta * power;
-        phi = phi * power;
-
-        // Convert back to cartesian coordinates
-        z = zr * vec3(cos(theta) * cos(phi), cos(phi) * sin(theta), sin(phi));
-		if (juliaMode)
-			z += juliaStart;
-        else
-			z += pos.xzy;
-	    trap = vec4(min(trap.xyz, abs(z)), i);
-    }
-
-    return 0.5 * log(r) * r / dr;*/
 			points = new Array();
 			
 			let r;
@@ -805,6 +789,34 @@ var orbitViewScene;
 var orbitViewCamera;
 var orbitMapWindowRenderer;
 
+function ResizeCanvases(width)
+{
+ if (width<600)
+ {
+  subWindowWidth=300;
+  subWindowHeight=180;
+ }
+ else
+ {
+  subWindowWidth=500;
+  subWindowHeight=300;
+ }  
+ 
+ const subWindowCanvas = document.getElementById('pickerCanvas');
+ subWindowCanvas.width = subWindowWidth;
+ subWindowCanvas.height = subWindowHeight;
+ juliaWindowRenderer.setSize(subWindowCanvas.width, subWindowCanvas.height);
+
+ const orbitMapWindowCanvas = document.getElementById('orbitMapCanvas');
+ orbitMapWindowCanvas.width = subWindowWidth;
+ orbitMapWindowCanvas.height = subWindowHeight;
+ orbitMapWindowRenderer.setSize(orbitMapWindowCanvas.width, orbitMapWindowCanvas.height);
+
+ const orbitViewCanvas = document.getElementById('orbitCanvas');
+ orbitViewCanvas.width = subWindowWidth;
+ orbitViewCanvas.height = subWindowHeight;
+ orbitViewRenderer.setSize(orbitViewCanvas.width, orbitViewCanvas.height);
+}
 function InitialiseSubWindows()
 {
 	// initialise julia preview window
@@ -840,6 +852,7 @@ let gSphereRadius = 1;
 let gDragTheta = 0;
 let gDragPhi = 0;
 let gDragDistance = 1;
+let gDragMultiplier = 1;
 
 function min(a,b)
 {
@@ -859,6 +872,9 @@ function DeviceDown(devx, devy)
 			gJuliaLocation.x = pixelBuffer[0];
 			gJuliaLocation.y = pixelBuffer[2];
 			gJuliaLocation.z = pixelBuffer[1];
+			setGuiValue('JuliaX', gJuliaLocation.x);
+			setGuiValue('JuliaY', gJuliaLocation.y);
+			setGuiValue('JuliaZ', gJuliaLocation.z);
 		}
 		gJuliaDirty = true;
 		gJuliaDragSelection = !gJuliaDragSelection;
@@ -912,6 +928,9 @@ function DeviceMove(devx, devy)
 			gJuliaLocation.x = pixelBuffer[0];
 			gJuliaLocation.y = pixelBuffer[2];
 			gJuliaLocation.z = pixelBuffer[1];
+			setGuiValue('JuliaX', gJuliaLocation.x);
+			setGuiValue('JuliaY', gJuliaLocation.y);
+			setGuiValue('JuliaZ', gJuliaLocation.z);
 		}
 		gJuliaDirty = true;
 	}
@@ -921,8 +940,8 @@ function DeviceMove(devx, devy)
 		let deltaX = devx - previousMousePosition.x;
 		let deltaY = devy - previousMousePosition.y;
 		
-		gRotation.x -= gDragDistance * deltaX * 0.001;
-		gRotation.y += gDragDistance * deltaY * 0.001;
+		gRotation.x -= gDragMultiplier * gDragDistance * deltaX * 0.001;
+		gRotation.y += gDragMultiplier * gDragDistance * deltaY * 0.001;
 		if (gRotation.y>Math.PI / 2) gRotation.y = Math.PI/2;
 		if (gRotation.y<-Math.PI / 2) gRotation.y = -Math.PI/2;
 
@@ -936,8 +955,8 @@ function DeviceMove(devx, devy)
 		let deltaX = devx - previousMousePosition.x;
 		let deltaY = devy - previousMousePosition.y;
 		
-		gJuliaRotation.x -= gDragDistance * deltaX * 0.001;
-		gJuliaRotation.y += gDragDistance * deltaY * 0.001;
+		gJuliaRotation.x -= gDragMultiplier * gDragDistance * deltaX * 0.001;
+		gJuliaRotation.y += gDragMultiplier * gDragDistance * deltaY * 0.001;
 		if (gJuliaRotation.y>Math.PI / 2) gJuliaRotation.y = Math.PI/2;
 		if (gJuliaRotation.y<-Math.PI / 2) gJuliaRotation.y = -Math.PI/2;
 
@@ -953,6 +972,28 @@ function DeviceUp()
 	isJuliaDragging = false;
 }
 
+var gInitialDistance=0;
+
+function SetZoom(zoomMultiple)
+{
+	var delta = 1;
+	var origin = 1;
+	pixelBuffer = new Float32Array(4);
+	pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
+	if (pixelBuffer[3]>0)
+	{
+		let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
+		delta = camTo.length();
+	}
+	let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
+	origin = camToCentre.length() - delta;
+	delta = delta*zoomMultiple;
+	
+	gDistance = origin+delta;
+	gDirty = true;
+	gJuliaDirty = true;
+}
+
 function AddListeners()
 {
 	const canvas = renderer.domElement;
@@ -960,7 +1001,15 @@ function AddListeners()
 	canvas.addEventListener('touchstart', function(event) {
         // Prevent default behavior (optional)
         event.preventDefault();
-		DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			DeviceUp();
+			var vec1 = new THREE.Vector2(event.touches[0].pageX, event.touches[0].pageY);
+			var vec2 = new THREE.Vector2(event.touches[1].pageX, event.touches[1].pageY);
+			gInitialDistance = vec1.distanceTo(vec2);
+		}
     });
 
 	canvas.addEventListener('mousedown', (event) => {
@@ -974,13 +1023,30 @@ function AddListeners()
 	});
 
 	document.addEventListener('touchmove', function(event) {
-        // Prevent default behavior (optional)
-        event.preventDefault();
+		if (event.touches.length === 1)
+		{
+			gDragMultiplier = 3;
+			DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			// Prevent default behavior (optional)
+			event.preventDefault();
 
-		DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+			var vec1 = new THREE.Vector2(event.touches[0].pageX, event.touches[0].pageY);
+			var vec2 = new THREE.Vector2(event.touches[1].pageX, event.touches[1].pageY);
+			var distance = vec1.distanceTo(vec2);
+			if (distance != gInitialDistance)
+			{
+				SetZoom(gInitialDistance/distance);
+				gInitialDistance = distance;
+			}
+		}
+		
+
     });
 
 	document.addEventListener('mousemove', (event) => {
+		gDragMultiplier = 1;
 		DeviceMove(event.clientX, event.clientY);
 	});
 
@@ -989,36 +1055,23 @@ function AddListeners()
 	});
 
 	document.addEventListener('touchend', function(event) {
-		DeviceUp();
+		if (event.touches.length === 0) {
+			DeviceUp();
+		}
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
     });
 
 	window.addEventListener('wheel', function(event) {
-		var delta = 1;
-		var origin = 1;
-		pixelBuffer = new Float32Array(4);
-		pixelBuffer = readBackDepth(window.innerWidth/2, window.innerHeight/2);
-		if (pixelBuffer[3]>0)
-		{
-			let camTo = new THREE.Vector3(pixelBuffer[0]-gCameraFrom.x, pixelBuffer[1]-gCameraFrom.y, pixelBuffer[2]-gCameraFrom.z);
-			delta = camTo.length();
-		}
-		let camToCentre = new THREE.Vector3(gCameraTo.x - gCameraFrom.x, gCameraTo.y - gCameraFrom.y, gCameraTo.z - gCameraFrom.z);
-		origin = camToCentre.length() - delta;
-
 		if (event.deltaY > 0) {
-			delta = delta*1.08;
-			gDirty = true;
-			gJuliaDirty = true;
+			SetZoom(1.08);
 		} else if (event.deltaY < 0) {
-			delta = delta*0.94;
-			gDirty = true;
-			gJuliaDirty = true;
+			SetZoom(0.94);
 		}
-		
-		gDistance = origin+delta;
 
 		// Prevent default scrolling behavior if necessary
-		// event.preventDefault();
+//		event.preventDefault();
 	}, false);
 }
 
@@ -1031,22 +1084,10 @@ window.addEventListener('resize', function() {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    const element = document.querySelector('.MBMenu2');
-
-	if (width<880)
-	{
-        element.style.top = 'auto';
-        element.style.bottom = '41px';
-    }
-	else {
-        // When the viewport width is greater than 800px
-        element.style.top = '41px';
-        element.style.bottom = 'auto';
-	}
-	
 	gDirty=true;
 
     shaderMaterial.uniforms.resolution.value.set(width, height);
+	ResizeCanvases(window.innerWidth);
 });
 
 Initialise();
@@ -1091,8 +1132,8 @@ function guiSetInitialParams()
  setGuiRGB('zeColorPicker', gZEColour);
  setGuiBool('HSLBlend', gHSLBlend);
  setGuiValue('JuliaX', gJuliaLocation.x);
- setGuiValue('JuliaY', gJuliaLocation.x);
- setGuiValue('JuliaZ', gJuliaLocation.x);
+ setGuiValue('JuliaY', gJuliaLocation.y);
+ setGuiValue('JuliaZ', gJuliaLocation.z);
 }
 
 function getGuiBool(id)
@@ -1157,27 +1198,22 @@ function guiMenuVisibility(settings, julia, orbit, orbitMap)
 
 function guiMenuSettings()
 {
- guiMenuVisibility(true, false, false, false);
+ guiMenuVisibility(document.getElementById("Settings").hidden, false, false, false);
 }
 
 function guiMenuJuliaSelector()
 {
- guiMenuVisibility(false, true, false, false);
+ guiMenuVisibility(false, document.getElementById("JuliaSelector").hidden, false, false);
 }
 
 function guiMenuOrbitViewer()
 {
- guiMenuVisibility(false, false, true, false);
+ guiMenuVisibility(false, false, document.getElementById("OrbitViewer").hidden, false);
 }
 
 function guiMenuOrbitMapViewer()
 {
- guiMenuVisibility(false, false, false, true);
-}
-
-function guiMenuHide()
-{
- guiMenuVisibility(false, false, false);
+ guiMenuVisibility(false, false, false, document.getElementById("OrbitMap").hidden);
 }
 
 function guiCopyURL()
@@ -1210,7 +1246,6 @@ document.write('\
 <DIV class="MBMenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>\
 <DIV class="MBMenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>\
 <DIV class="MBMenuOpt" onclick="guiMenuOrbitMapViewer()">Orbit Map</DIV>\
-<DIV class="MBMenuOpt" onclick="guiMenuHide()">Hide</DIV>\
 </DIV>\
 <DIV class="MBMenu2">\
 <A href="http://www.woofractal.com/">WOOFRACTAL.COM</A><BR>Understanding Fractals\
@@ -1255,10 +1290,11 @@ Zoom : 1\
 
 ReadQueryString();
 guiSetInitialParams();
-guiMenuHide();
+guiMenuVisibility(false, false, false, false);
 InitialiseSubWindows();
 AddListeners();
 animate();
+ResizeCanvases(window.innerWidth);
 
 }
 	</script>
