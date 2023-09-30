@@ -58,6 +58,12 @@ function max(a, b)
  return b;
 }
 
+function min(a, b)
+{
+ if (a<b) return a;
+ return b;
+}
+
 function DrawBifurcationPlot()
 {
  if (gDirty)
@@ -89,22 +95,33 @@ function DrawBifurcationPlot()
   var incrementalX = Math.random();
 	 for (i=0; i<gWidth; i++)
 	 {
-	  xValue = 0.5;
+	  //xValue = 0.5;
 	  for (j=0; j<1000; j++)
 	  {
 	   xValue = logistic(rStart+(incrementalX/(gZoom*gWidth)), xValue);
-	   if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, parseFloat(i)+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.055);
+	   if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, parseFloat(i)+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.015);
 	  }
 	  rStart+=step;
 	 }
-	
+
+ var maxValue = 0;
+ var sumValue = 0
+ for (var i=0; i<gWidth*gHeight; i++)
+ {
+  if (gFloatBuffer[i]>maxValue) maxValue = gFloatBuffer[i];
+  sumValue += gFloatBuffer[i];
+ }
+ 
+ maxValue = (gWidth*gHeight) / sumValue;
+
  for (var y=0; y<gHeight; y++)
  {
    for (var x=0; x<gWidth; x++)
     {
-	 imageData.data[(4*(x+y*gWidth))+0] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
-	 imageData.data[(4*(x+y*gWidth))+1] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
-	 imageData.data[(4*(x+y*gWidth))+2] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
+	var divisor = gIterations>0 ? gIterations/gZoom : 1/gZoom;
+	 imageData.data[(4*(x+y*gWidth))+0] = min(12*gFloatBuffer[x + y*gWidth]/divisor, 1)*255.99;
+	 imageData.data[(4*(x+y*gWidth))+1] = min(12*gFloatBuffer[x + y*gWidth]/divisor, 1)*255.99;
+	 imageData.data[(4*(x+y*gWidth))+2] = min(12*gFloatBuffer[x + y*gWidth]/divisor, 1)*255.99;
 	 imageData.data[(4*(x+y*gWidth))+3] = 255;
 	}
 	} 
