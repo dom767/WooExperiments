@@ -139,7 +139,7 @@ float softShadow(vec3 ro, vec3 rd, float start, float end) {
     for (int i = 0; i < 50; i++) {
 		vec4 trap;
         float h = distanceEstimate(ro + rd * t, trap);
-        if (h < 0.001) return 0.0;  // Fully in shadow
+        if (h < start*0.5) return 0.0;  // Fully in shadow
         res = min(res, 8.0 * h / t);
         t += h;
         if (t > end) break;
@@ -330,23 +330,24 @@ void main() {
 		vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0)); // Example light direction
 		
 		// Calculate Lambertian reflectance
-		float lambert = softShadow(hitPoint, lightDir, 0.05, 0.3) * max(0.0, dot(normal, lightDir));		
+		float lambert = softShadow(hitPoint, lightDir, 2.0*epsilon, 0.3) * max(0.0, dot(normal, lightDir));		
 		vec3 ambientColor = mix(groundColor, skyColor, 0.5 + 0.5 * normal.y);
      
-    // Combine lambertian and ambient lighting
-    vec3 baseColor = vec3(0.8, 0.5, 0.3); 
-	vec3 trapColour = GetFractalColour(trap);
-    vec3 finalColor = trapColour * (0.5*ambientColor + lambert);
-	gl_FragColor = vec4(finalColor, 1.0);
-    } else {
+		// Combine lambertian and ambient lighting
+		vec3 baseColor = vec3(0.8, 0.5, 0.3); 
+		vec3 trapColour = GetFractalColour(trap);
+		vec3 finalColor = trapColour * (0.5*ambientColor + lambert);
+		gl_FragColor = vec4(finalColor, 1.0);
+    }
+	else {
 		if (depthCheck)
 		{
-		 vec3 hitPoint = rayOrigin + 1000.0 * rayDirection;
-		 gl_FragColor = vec4(hitPoint, -1.0);
-		 return;
+			vec3 hitPoint = rayOrigin + 1000.0 * rayDirection;
+			gl_FragColor = vec4(hitPoint, -1.0);
+			return;
 		}
-     vec3 ambientColor = mix(groundColor, skyColor, 0.5 + 0.5 * rayDirection.y);
-     gl_FragColor = vec4(ambientColor, 1.0);  // No hit, render black
+		vec3 ambientColor = mix(groundColor, skyColor, 0.5 + 0.5 * rayDirection.y);
+		gl_FragColor = vec4(ambientColor, 1.0);  // No hit, render black
     }
 }
 </script>
@@ -470,7 +471,7 @@ function floatToHex(num)
 
 function convertToHex(col)
 {
- return floatToHex(col.r)+floatToHex(col.g)+floatToHex(col.b);
+	return floatToHex(col.r)+floatToHex(col.g)+floatToHex(col.b);
 }
 
 function replaceURL()
