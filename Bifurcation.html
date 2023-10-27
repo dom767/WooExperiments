@@ -43,6 +43,8 @@ var gStartY = 0.5;
 var gPosX = 3.2;
 var gPosY = 0.5;
 var gZoom = 1;
+var gSubPixelEnabled = true;
+var gMersenne = false;
 
 function InitialiseBuffers()
 {
@@ -63,6 +65,7 @@ function Initialise()
  // gHeight = canvas.height;
  AddEventListeners();
  InitialiseBuffers();
+ guiSetInitialParams();
  setTimeout(Tick, 17);
 }
 
@@ -140,6 +143,14 @@ class MersenneTwister {
 
 const mt = new MersenneTwister(123);
 
+function getRandom()
+{
+ if (gMersenne)
+  return mt.random();
+ else
+  return Math.random();
+}
+
 function DrawBifurcationPlot()
 {
  if (gDirty)
@@ -153,6 +164,8 @@ function DrawBifurcationPlot()
   gIterations = 0;
  }
 
+ var screenAspectRatio = gWidth / gHeight;
+
  var canvas = document.getElementById('canvas1');
  if (canvas.getContext)
  {
@@ -160,24 +173,24 @@ function DrawBifurcationPlot()
   ctx.clearRect(0,0,gWidth,gHeight);
     
   var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
-  var rMin = 2.4;
-  var rMax = 4.0;
-  var step = (1/gZoom) / gWidth;
-  
-  // move the start points and modify step
-//  var rStart = rMin+(gStartX-(1/gZoom)*0.5)*(rMax-rMin);
-
-
-  var rStart = gPosX - (0.5/gZoom);
+  var step = (screenAspectRatio*1/gZoom) / gWidth;
+  var rStart = gPosX - (0.5*screenAspectRatio/gZoom);
 
   for (i=0; i<gWidth; i++)
 	 {
-      var incrementalX = mt.random();
-	  xValue = mt.random();
+      var incrementalX = getRandom();
+	  xValue = getRandom();
 	  for (j=0; j<1000; j++)
 	  {
 	   xValue = logistic(rStart+(incrementalX/(gZoom*gWidth)), xValue);
-	   if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, i+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.015);
+	   if (gSubPixelEnabled)
+	   {
+		if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, i+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.015);
+	   }
+	   else
+	   {
+		if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, parseInt(i+incrementalX), parseInt(gHeight*(0.5+(gZoom*(xValue-gStartY)))), 0.015);
+	   }
 	  }
 	  rStart+=step;
 	 }
@@ -219,6 +232,11 @@ function Tick()
 	if (document.getElementById("Iterations").hidden == false)
 		AnimateIterations();
 
+	if (document.getElementById("Navigator").hidden == false)
+		AnimateNavigator();
+		
+ UpdateStats();		
+
  setTimeout(Tick, 17);
 }
 
@@ -244,7 +262,7 @@ function AnimateFunctionView()
  {
   for (x=0; x<500; x++)
   {
-   var delta = Math.random();
+   var delta = getRandom();
    var value = logistic(selectedPosition.x, (x+delta)/500);
    value = logistic(selectedPosition.x, value);
    value = logistic(selectedPosition.x, value);
@@ -323,6 +341,72 @@ for (var y=0; y<300; y++)
  }
 }
 
+var gNDirty = true;
+var gNBuffer = new Float32Array(500*300);
+var gNIterations = 0;
+
+function ClearNavigatorBuffer()
+{
+ gNDirty = true;
+ gNIterations = 0;
+ for (y=0; y<300; y++)
+ for (x=0; x<500; x++)
+ {gNBuffer[x+y*500] = 0.0;}
+}
+
+function AnimateNavigator()
+{
+ var screenAspectRatio = gWidth / gHeight;
+
+ if (gNDirty)
+ {
+  var aspect = 500 / 300;
+  var rStart = (getRandom()*aspect/500) + gPosX - (0.5*aspect);
+  for (x=0; x<500; x++)
+  {
+   value = 0.5;
+   for (i=0; i<100; i++)
+   {
+    value = logistic(rStart, value);
+    if (i>10) 
+     DrawPixelFloatAdd(gNBuffer, 500, 300, x, 300*value, 0.02);
+   }
+   rStart += aspect/500;
+  }
+  gNIterations++;
+
+  var canvas = document.getElementById('navigatorCanvas');
+  if (canvas.getContext)
+  {
+   var ctx = canvas.getContext('2d');
+   ctx.clearRect(0,0,500,300);
+    
+   var imageData = ctx.getImageData(0, 0, 500, 300);
+   for (var y=0; y<300; y++)
+   {
+    for (var x=0; x<500; x++)
+    {
+     var output = 1 - Math.exp(-2*min(12*gNBuffer[x + y*500]/gNIterations, 1));
+     imageData.data[(4*(x+y*500))+0] = output*255.99;
+     imageData.data[(4*(x+y*500))+1] = output*255.99;
+     imageData.data[(4*(x+y*500))+2] = output*255.99;
+     imageData.data[(4*(x+y*500))+3] = 255;
+    }
+   } 
+   ctx.putImageData(imageData,0,0);
+	
+   // Set properties for the box
+   ctx.strokeStyle = 'red';  // Color of the box's border
+   ctx.lineWidth = 1;          // Width of the box's border
+
+   // Draw the box
+   ctx.strokeRect(250-screenAspectRatio*150/gZoom, gStartY*300-150/gZoom, screenAspectRatio*300/gZoom, 300/gZoom );  // Draws a box starting at (50,50) with width 400 and height 200
+  } 
+  if (gNIterations>10)
+   gNDirty = false;
+ }
+}
+
 function AddEventListeners()
 {
 	const canvas = document.getElementById('canvas1');
@@ -346,6 +430,7 @@ function AddEventListeners()
 			// Store the new mouse position for the next frame
 			previousMousePosition = { x: event.clientX, y: event.clientY };
 			gDirty = true;
+			ClearNavigatorBuffer();
 		}
 	});
 
@@ -371,6 +456,7 @@ function AddEventListeners()
 			gZoom = gZoom*1.08;
 			gDirty = true;
 		}
+		ClearNavigatorBuffer();
 		// Prevent default scrolling behavior if necessary
 		// event.preventDefault();
 	}, false);
@@ -382,6 +468,12 @@ function guiMenuVisibility(settings, navigator, iterations, functionView)
  document.getElementById("Navigator").hidden = !navigator;
  document.getElementById("Iterations").hidden = !iterations;
  document.getElementById("FunctionView").hidden = !functionView;
+}
+
+function UpdateStats()
+{
+ var statsdiv = document.getElementById('stats');
+ statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>X : "+gPosX+"<BR>Y : "+gStartY+"<BR>Zoom : "+gZoom; 
 }
 
 function guiMenuSettings()
@@ -402,6 +494,48 @@ function guiMenuIterations()
 function guiMenuFunction()
 {
  guiMenuVisibility(false, false, false, document.getElementById("FunctionView").hidden);
+}
+
+function setGuiBool(id, value)
+{
+ var guiItem = document.getElementById(id);
+ guiItem.checked = value;
+}
+
+function setGuiValue(id, value)
+{
+ var guiItem = document.getElementById(id);
+ guiItem.value = value;
+}
+
+function guiSetInitialParams()
+{
+ setGuiBool('subPixelEnabled', gSubPixelEnabled);
+ setGuiBool('mersenne', gMersenne);
+}
+
+function getGuiBool(id)
+{
+ var guiItem = document.getElementById(id);
+ return guiItem.checked;
+}
+
+function getGuiFloat(id)
+{
+ var guiItem = document.getElementById(id);
+ return parseFloat(guiItem.value);
+}
+
+function getGuiInt(id)
+{
+ var guiItem = document.getElementById(id);
+ return parseInt(guiItem.value);
+}
+
+function guiReadParameters()
+{
+ gSubPixelEnabled = getGuiBool('subPixelEnabled');
+ gMersenne = getGuiBool('mersenne');
 }
 
 function CreateCanvas(fullwidth, settings, width, height, x, y, zoom)
@@ -441,16 +575,16 @@ Y : 714<BR>\
 Zoom : 3.1\
 </DIV>\
 <BR>Settings\
-<BR><INPUT id="subPixelEnabled" checked="true" type="checkbox" onchange="guiReadParameters(false, true)">Subpixel Rendering</INPUT>\
-<BR><INPUT id="Mersenne" type="checkbox" onchange="guiReadParameters(false, true)">Mersenne / Standard</INPUT>\
-<BR><INPUT id="" type="checkbox" onchange="guiReadParameters(false, true)"> aaEnabled</INPUT>\
-<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters(false, false)"> Scale Colour</INPUT>\
-<BR><DIV class="MBLabel" >Max Iterations</DIV><INPUT id="maxIterations" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
-<BR><DIV class="MBLabel" >Offset</DIV><INPUT id="colourOffset" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
-<BR><DIV class="MBLabel" >Multiplier</DIV><INPUT id="colourMultiplier" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
-<BR><INPUT id="fullScreen" type="checkbox" onchange="guiReadParameters(true, true)"> Fullscreen</INPUT>\
-<BR><DIV class="MBLabel" >Width</DIV><INPUT id="width" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
-<BR><DIV class="MBLabel" >Height</DIV><INPUT id="height" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
+<BR><INPUT id="subPixelEnabled" checked="true" type="checkbox" onchange="guiReadParameters()">Subpixel Rendering</INPUT>\
+<BR><INPUT id="mersenne" type="checkbox" onchange="guiReadParameters()">Mersenne / Standard</INPUT>\
+<BR><INPUT id="" type="checkbox" onchange="guiReadParameters()"> aaEnabled</INPUT>\
+<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters()"> Scale Colour</INPUT>\
+<BR><DIV class="MBLabel" >Max Iterations</DIV><INPUT id="maxIterations" class="MBInput" onchange="guiReadParameters()"/></input>\
+<BR><DIV class="MBLabel" >Offset</DIV><INPUT id="colourOffset" class="MBInput" onchange="guiReadParameters()"/></input>\
+<BR><DIV class="MBLabel" >Multiplier</DIV><INPUT id="colourMultiplier" class="MBInput" onchange="guiReadParameters()"/></input>\
+<BR><INPUT id="fullScreen" type="checkbox" onchange="guiReadParameters()"> Fullscreen</INPUT>\
+<BR><DIV class="MBLabel" >Width</DIV><INPUT id="width" class="MBInput" onchange="guiReadParameters()"/></input>\
+<BR><DIV class="MBLabel" >Height</DIV><INPUT id="height" class="MBInput" onchange="guiReadParameters()"/></input>\
 </DIV>\
 \
 <DIV id="Navigator" class="MBPanel">\
