@@ -1,3 +1,4 @@
+<?php /* Template Name: Mandelbulb Renderer */ ?> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">

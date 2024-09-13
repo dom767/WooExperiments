@@ -1,5 +1,7 @@
+<?php /* Template Name: Bifurcation Renderer */ ?>
 <HTML>
 <HEAD>
+<TITLE>woofractal.com - Bifurcation Diagram</TITLE>
 <style>
 body, html {margin:0;padding:0;overflow:hidden;width:100%;height:100%;}
 * {font-family:verdana;font-size:14px;margin:0;padding:0;}
@@ -29,7 +31,7 @@ a:hover {color:#F93;}
     .MBMenu2 {font-size:12px;width:220px;height:36px;top:auto;bottom:41px;right:50px;padding:10px;}
 }
 </style>
-
+<script src="https://cdn.jsdelivr.net/npm/pako@1.0.11/dist/pako.min.js"></script>
 <SCRIPT>
 
 var gWidth = window.innerWidth;
@@ -37,24 +39,109 @@ var gHeight = window.innerHeight;
 var gFloatBuffer = new Float32Array(gWidth * gHeight);
 var gDirty = true;
 var gIterations = 0;
-var gStartIterations = 100;
-var gStartX = 0.5;
-var gStartY = 0.5;
 var gPosX = 3.2;
 var gPosY = 0.5;
-var gZoom = 1;
+var gZoomX = 1;
+var gZoomY = 1;
 var gSubPixelEnabled = true;
 var gMersenne = false;
+var gScaleY = false;
+var gRandomStartValue = true;
+var gStartValue = 0.5;
+var gSkipIterations = 1;
+var gFixedCanvasSize = false;
+var gFixedCanvasWidth = 1024;
+var gFixedCanvasHeight = 1024;
+var gBrightness = 1;
+var gExposureEnabled = false;
+
+var gCompressed = "";
+
+function CompressParams()
+{
+    let val = "";
+    val += gPosX;
+    val += "," + gPosY;
+    val += "," + gZoomX;
+    val += "," + gZoomY;
+    val += "," + (gSubPixelEnabled==true? 1: 0);
+    val += "," + (gMersenne==true? 1: 0);
+    val += "," + (gScaleY==true? 1: 0);
+    val += "," + (gRandomStartValue==true? 1: 0);
+    val += "," + gStartValue;
+    val += "," + gSkipIterations;
+    val += "," + (gExposureEnabled==true? 1 : 0);
+    val += "," + gBrightness;
+    const compressedstring2 = pako.deflate(val, { to: 'string' });
+    let encoded = btoa(compressedstring2);
+    console.log(encoded);
+    gCompressed = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '.');
+    console.log(gCompressed);
+}
+
+function DecompressParams(str)
+{
+    console.log(str);
+    const normalStr = str.replace(/-/g, '+').replace(/_/g, '/').replace(/\./g, '=');
+    console.log(normalStr);
+    const decoded = atob(normalStr);
+    const decompressed = pako.inflate(decoded, { to: 'string' });
+    const vals = decompressed.split(",");
+    let index = 0;
+    gPosX = parseFloat(vals[index++]);
+    gPosY = parseFloat(vals[index++]);
+    gZoomX = parseFloat(vals[index++]);
+    gZoomY = parseFloat(vals[index++]);
+    gSubPixelEnabled = (vals[index++]==1);
+    gMersenne = (vals[index++]==1);
+    gScaleY = (vals[index++]==1);
+    gRandomStartValue = (vals[index++]==1);
+    gStartValue = vals[index++];
+    gSkipIterations = vals[index++];
+    gExposureEnabled = (vals[index++]==1);
+    gBrightness = parseFloat(vals[index++]);
+}
+
+function ReplaceURL()
+{
+    if (window.history.replaceState)
+    {
+        gURL = "?";
+        gURL = gURL+ "&p=\""+gCompressed+"\"";
+
+        url = window.location.href.split('/').pop().replace(/\#(.*?)$/, '').replace(/\?(.*?)$/, '');
+        url = url.split('.');  // separates filename and extension
+        if (!window.location.origin.includes("file://")) window.history.replaceState({}, null, url[0]+gURL);
+    }
+}
+
+function ReadQueryString()
+{
+    var urlParams;
+    var match, search = /([^&=]+)=?([^&]*)/g;
+    var decode = function (s) { return decodeURIComponent(s); };
+    var query  = window.location.search.substring(1);
+
+    urlParams = {};
+    while (match = search.exec(query))
+        urlParams[decode(match[1])] = decode(match[2]);
+
+    if (urlParams["p"] != null)
+    {
+        gCompressedString = urlParams["p"].replace(/^"(.+)"$/, '$1').replace(/^'(.+)'$/, '$1');
+        DecompressParams(gCompressedString);
+    }
+}
 
 function InitialiseBuffers()
 {
- gWidth = window.innerWidth;
+/* gWidth = window.innerWidth;
  gHeight = window.innerHeight;
  
  var canvas = document.getElementById('canvas1');
  canvas.width = gWidth;
  canvas.height = gHeight;
-
+*/
  gFloatBuffer = new Float32Array(gWidth * gHeight);
 }
 
@@ -64,8 +151,11 @@ function Initialise()
  // gWidth = canvas.width;
  // gHeight = canvas.height;
  AddEventListeners();
+ ReadQueryString();
  InitialiseBuffers();
  guiSetInitialParams();
+ guiMenuVisibility(false, false, false, false);
+
  setTimeout(Tick, 17);
 }
 
@@ -162,6 +252,8 @@ function DrawBifurcationPlot()
 	}
   gDirty = false;
   gIterations = 0;
+  CompressParams();
+  ReplaceURL();
  }
 
  var screenAspectRatio = gWidth / gHeight;
@@ -173,24 +265,34 @@ function DrawBifurcationPlot()
   ctx.clearRect(0,0,gWidth,gHeight);
     
   var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
-  var step = (screenAspectRatio*1/gZoom) / gWidth;
-  var rStart = gPosX - (0.5*screenAspectRatio/gZoom);
+  var step = (screenAspectRatio*1/gZoomX) / gWidth;
+  var rStart = gPosX - (0.5*screenAspectRatio/gZoomX);
 
   for (i=0; i<gWidth; i++)
 	 {
-      var incrementalX = getRandom();
-	  xValue = getRandom();
+	  var incrementalX = getRandom();
+	  if (gRandomStartValue) xValue = getRandom();
+	  else xValue = gStartValue;
 	  for (j=0; j<1000; j++)
 	  {
-	   xValue = logistic(rStart+(incrementalX/(gZoom*gWidth)), xValue);
+	   if (j>=gSkipIterations)
+	   {
+       var yValue;
+		if (gScaleY)
+		 yValue = gHeight*xValue;
+		else
+		 yValue = gHeight*(0.5+(gZoomY*(xValue-gPosY)));
+
 	   if (gSubPixelEnabled)
 	   {
-		if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, i+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.015);
+		DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, i+incrementalX, yValue, 0.015);
 	   }
 	   else
 	   {
-		if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, parseInt(i+incrementalX), parseInt(gHeight*(0.5+(gZoom*(xValue-gStartY)))), 0.015);
+		DrawPixelFloatAdd(gFloatBuffer, gWidth, gHeight, parseInt(i+incrementalX), parseInt(yValue), 0.015);
 	   }
+	   }
+	   xValue = logistic(rStart+(incrementalX/(gZoomX*gWidth)), xValue);
 	  }
 	  rStart+=step;
 	 }
@@ -209,8 +311,11 @@ function DrawBifurcationPlot()
  {
    for (var x=0; x<gWidth; x++)
     {
-	 var divisor = gIterations>0 ? gIterations/gZoom : 1/gZoom;
-	 var output = 1 - Math.exp(-2*min(12*gFloatBuffer[x + y*gWidth]/divisor, 1));
+	 var divisor = gIterations>0 ? gIterations/gZoomY : 1/gZoomY;
+     if (gScaleY && gIterations>0) divisor = gIterations;
+     var colour = gFloatBuffer[x + y*gWidth] / divisor;
+	 if (gExposureEnabled) colour = 1- Math.exp(-colour);
+	 var output = min(12*gBrightness*colour, 1);
 	 imageData.data[(4*(x+y*gWidth))+0] = output*255.99;
 	 imageData.data[(4*(x+y*gWidth))+1] = output*255.99;
 	 imageData.data[(4*(x+y*gWidth))+2] = output*255.99;
@@ -400,60 +505,160 @@ function AnimateNavigator()
    ctx.lineWidth = 1;          // Width of the box's border
 
    // Draw the box
-   ctx.strokeRect(250-screenAspectRatio*150/gZoom, gStartY*300-150/gZoom, screenAspectRatio*300/gZoom, 300/gZoom );  // Draws a box starting at (50,50) with width 400 and height 200
+   ctx.strokeRect(250-screenAspectRatio*150/gZoomX, gPosY*300-150/gZoomY, screenAspectRatio*300/gZoomX, 300/gZoomY );  // Draws a box starting at (50,50) with width 400 and height 200
+
+   // Set properties for the box
+   ctx.strokeStyle = 'orange';  // Color of the box's border
+   ctx.lineWidth = 1;          // Width of the box's border
+
+   // Draw the box
+   ctx.strokeRect(250-(2+screenAspectRatio*150/gZoomX), gPosY*300-(2+150/gZoomY), 4+screenAspectRatio*300/gZoomX, 4+300/gZoomY );  // Draws a box starting at (50,50) with width 400 and height 200
   } 
   if (gNIterations>10)
    gNDirty = false;
  }
 }
 
+function ResizeWindow()
+{
+ if (gFixedCanvasSize)
+ {
+  gWidth = gFixedCanvasWidth;
+  gHeight = gFixedCanvasHeight;
+ }
+ else
+ {
+  gWidth = window.innerWidth;
+  gHeight = window.innerHeight;
+ }
+ 
+ var canvas = document.getElementById('canvas1');
+ canvas.width = gWidth;
+ canvas.height = gHeight;		
+ 
+ InitialiseBuffers();
+ gDirty=true;
+}
+
+function DeviceDown(devx, devy)
+{
+    isDragging = true;
+    previousMousePosition = { x: devx, y: devy };
+    selectedPosition.x = gPosX + (((devx*2-window.innerWidth)/window.innerWidth*0.5) / gZoomX);
+    ClearBuffer();
+    ClearIterationsBuffer();
+}
+
+function DeviceMove(devx, devy)
+{
+    if (isDragging)
+    {
+        let deltaX = devx - previousMousePosition.x;
+        let deltaY = devy - previousMousePosition.y;
+        
+        gPosX -= deltaX / (gHeight*gZoomX);
+        gPosY -= deltaY / (gHeight*gZoomY);
+
+        // Store the new mouse position for the next frame
+        previousMousePosition = { x: devx, y: devy };
+        gDirty = true;
+        ClearNavigatorBuffer();
+    }
+}
+
+function DeviceUp()
+{
+    isDragging = false;
+}
+
+let gInitialDistance = {x:0.0, y:0.0};
+
 function AddEventListeners()
 {
 	const canvas = document.getElementById('canvas1');
 	canvas.addEventListener('mousedown', (event) => {
-		isDragging = true;
-		previousMousePosition = { x: event.clientX, y: event.clientY };
-		selectedPosition.x = gPosX + (((event.clientX*2-window.innerWidth)/window.innerWidth*0.5) / gZoom);
-		ClearBuffer();
-		ClearIterationsBuffer();
+		DeviceDown(event.clientX, event.clientY);
 	});
 
-	document.addEventListener('mousemove', (event) => {
-		if (isDragging)
-		{
-			let deltaX = event.clientX - previousMousePosition.x;
-			let deltaY = event.clientY - previousMousePosition.y;
-			
-			gPosX -= deltaX / (gWidth*gZoom);
-			gStartY -= deltaY / (gWidth*gZoom);
-
-			// Store the new mouse position for the next frame
-			previousMousePosition = { x: event.clientX, y: event.clientY };
-			gDirty = true;
-			ClearNavigatorBuffer();
+	canvas.addEventListener('touchstart', function(event) {
+        // Prevent default behavior (optional)
+        event.preventDefault();
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
 		}
+		if (event.touches.length === 2) {
+			DeviceUp();
+			let vec1 = {x:event.touches[0].pageX, y:event.touches[0].pageY};
+			let vec2 = {x:event.touches[1].pageX, y:event.touches[1].pageY};
+			gInitialDistance.x = vec1.x - vec2.x;
+            gInitialDistance.y = vec1.y - vec2.y;
+		}
+    });
+
+    document.addEventListener('touchmove', function(event) {
+		if (event.touches.length === 1)
+		{
+			gDragMultiplier = 3;
+			DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			// Prevent default behavior (optional)
+			event.preventDefault();
+
+			let vec1 = {x:event.touches[0].pageX, y:event.touches[0].pageY};
+			let vec2 = {x:event.touches[1].pageX, y:event.touches[1].pageY};
+			let distance = {x:vec1.x - vec2.x, y:vec1.y - vec2.y};
+ 
+            if (distance.x != gInitialDistance.x && distance.y != gInitialDistance.y)
+			{
+                let centre = {x:0.5*(vec1.x+vec2.x), y:0.5*(vec1.y+vec2.y)};
+                //gPosX -= ((centre.x - gWidth*0.5)/(gHeight))*((1.0/Math.abs(gInitialDistance.x/distance.x))-1.0)/gZoomX;
+                //gPosY -= ((centre.y - gHeight*0.5)/(gHeight))*((1.0/Math.abs(gInitialDistance.y/distance.y)-1.0)/gZoomY;
+           
+                gZoomX /= Math.abs(gInitialDistance.x/distance.x);
+                gZoomY /= Math.abs(gInitialDistance.y/distance.y);
+				gInitialDistance = distance;
+                gDirty = true;
+			}
+		}
+    });
+    
+    document.addEventListener('touchend', function(event) {
+		if (event.touches.length === 0) {
+			DeviceUp();
+		}
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
+    });
+
+    document.addEventListener('mousemove', (event) => {
+		DeviceMove(event.clientX, event.clientY);
 	});
 
 	document.addEventListener('mouseup', () => {
-			console.log('Mouse Up');
-		isDragging = false;
+        DeviceUp();
 	});
 
 	window.addEventListener('resize', function() {
-		gWidth = window.innerWidth;
-		gHeight = window.innerHeight;
-		InitialiseBuffers();
-		gDirty=true;
+		ResizeWindow();
 	});
 
 	window.addEventListener('wheel', function(event) {
+		let zoomSpeed = 0.92;
 		if (event.deltaY > 0) {
-			console.log('Scrolled down');
-			gZoom = gZoom*0.94;
+		    if (!event.shiftKey) gPosX -= ((event.pageX - gWidth*0.5)/(gHeight))*((1.0/zoomSpeed)-1.0)/gZoomX;
+			gPosY -= ((event.pageY - gHeight*0.5)/(gHeight))*((1.0/zoomSpeed)-1.0)/gZoomY;
+			
+			if (!event.shiftKey) gZoomX = gZoomX*zoomSpeed;
+			gZoomY = gZoomY*zoomSpeed;
 			gDirty = true;
 		} else if (event.deltaY < 0) {
-			console.log('Scrolled up');
-			gZoom = gZoom*1.08;
+		    if (!event.shiftKey) gPosX += ((event.pageX - gWidth*0.5)/(gHeight))*(1.0-zoomSpeed)/gZoomX;
+			gPosY += ((event.pageY - gHeight*0.5)/(gHeight))*(1.0-zoomSpeed)/gZoomY;
+			
+			if (!event.shiftKey) gZoomX = gZoomX/zoomSpeed;
+			gZoomY = gZoomY/zoomSpeed;
 			gDirty = true;
 		}
 		ClearNavigatorBuffer();
@@ -473,7 +678,7 @@ function guiMenuVisibility(settings, navigator, iterations, functionView)
 function UpdateStats()
 {
  var statsdiv = document.getElementById('stats');
- statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>X : "+gPosX+"<BR>Y : "+gStartY+"<BR>Zoom : "+gZoom; 
+ statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>X : "+gPosX+"<BR>Y : "+gPosY+"<BR>Zoom : "+gZoomX; 
 }
 
 function guiMenuSettings()
@@ -508,12 +713,6 @@ function setGuiValue(id, value)
  guiItem.value = value;
 }
 
-function guiSetInitialParams()
-{
- setGuiBool('subPixelEnabled', gSubPixelEnabled);
- setGuiBool('mersenne', gMersenne);
-}
-
 function getGuiBool(id)
 {
  var guiItem = document.getElementById(id);
@@ -532,10 +731,42 @@ function getGuiInt(id)
  return parseInt(guiItem.value);
 }
 
-function guiReadParameters()
+function guiSetInitialParams()
 {
- gSubPixelEnabled = getGuiBool('subPixelEnabled');
- gMersenne = getGuiBool('mersenne');
+ setGuiBool('subPixelEnabled', gSubPixelEnabled);
+ setGuiBool('mersenne', gMersenne);
+ setGuiBool('scaleY', gScaleY);
+ setGuiBool('randomStartValue', gRandomStartValue);
+ setGuiValue('startValue', gStartValue);
+ setGuiValue('skipIterations', gSkipIterations);
+ setGuiValue('brightness', gBrightness);
+ setGuiValue('exposure', gExposureEnabled);
+ setGuiBool('fixedCanvasSize', gFixedCanvasSize);
+ setGuiValue('fixedCanvasWidth', gFixedCanvasWidth);
+ setGuiValue('fixedCanvasHeight', gFixedCanvasHeight);
+}
+
+
+function guiReadParameters(rerender)
+{
+    gSubPixelEnabled = getGuiBool('subPixelEnabled');
+    gMersenne = getGuiBool('mersenne');
+    gScaleY = getGuiBool('scaleY');
+    gRandomStartValue = getGuiBool('randomStartValue');
+    gStartValue = getGuiFloat('startValue');
+    gSkipIterations = getGuiInt('skipIterations');
+    gBrightness = getGuiFloat('brightness');
+    gExposureEnabled = getGuiBool('exposure');
+    var oldFixedCanvasSize = gFixedCanvasSize;
+    gFixedCanvasSize = getGuiBool('fixedCanvasSize');
+    gFixedCanvasWidth = getGuiInt('fixedCanvasWidth');
+    gFixedCanvasHeight = getGuiInt('fixedCanvasHeight');
+
+    if (gFixedCanvasSize != oldFixedCanvasSize)
+        ResizeWindow();
+
+    if (rerender)
+        gDirty = true;
 }
 
 function CreateCanvas(fullwidth, settings, width, height, x, y, zoom)
@@ -575,16 +806,17 @@ Y : 714<BR>\
 Zoom : 3.1\
 </DIV>\
 <BR>Settings\
-<BR><INPUT id="subPixelEnabled" checked="true" type="checkbox" onchange="guiReadParameters()">Subpixel Rendering</INPUT>\
-<BR><INPUT id="mersenne" type="checkbox" onchange="guiReadParameters()">Mersenne / Standard</INPUT>\
-<BR><INPUT id="" type="checkbox" onchange="guiReadParameters()"> aaEnabled</INPUT>\
-<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters()"> Scale Colour</INPUT>\
-<BR><DIV class="MBLabel" >Max Iterations</DIV><INPUT id="maxIterations" class="MBInput" onchange="guiReadParameters()"/></input>\
-<BR><DIV class="MBLabel" >Offset</DIV><INPUT id="colourOffset" class="MBInput" onchange="guiReadParameters()"/></input>\
-<BR><DIV class="MBLabel" >Multiplier</DIV><INPUT id="colourMultiplier" class="MBInput" onchange="guiReadParameters()"/></input>\
-<BR><INPUT id="fullScreen" type="checkbox" onchange="guiReadParameters()"> Fullscreen</INPUT>\
-<BR><DIV class="MBLabel" >Width</DIV><INPUT id="width" class="MBInput" onchange="guiReadParameters()"/></input>\
-<BR><DIV class="MBLabel" >Height</DIV><INPUT id="height" class="MBInput" onchange="guiReadParameters()"/></input>\
+<BR><INPUT id="subPixelEnabled" checked="true" type="checkbox" onchange="guiReadParameters(true)"> Subpixel Rendering</INPUT>\
+<BR><INPUT id="mersenne" type="checkbox" onchange="guiReadParameters(true)"> Mersenne / Standard</INPUT>\
+<BR><INPUT id="scaleY" type="checkbox" onchange="guiReadParameters(true)"> Scale Y</INPUT>\
+<BR><INPUT id="randomStartValue" type="checkbox" onchange="guiReadParameters(true)"> Random Start Value</INPUT>\
+<BR><DIV class="MBLabel" > Start Value</DIV><INPUT id="startValue" class="MBInput" onchange="guiReadParameters(true)"/></input>\
+<BR><DIV class="MBLabel" >Skip First X</DIV><INPUT id="skipIterations" class="MBInput" onchange="guiReadParameters(true)"/></input>\
+<BR><DIV class="MBLabel" >Brightness</DIV><INPUT id="brightness" class="MBInput" onchange="guiReadParameters(false)"/></input>\
+<BR><INPUT id="exposure" type="checkbox" onchange="guiReadParameters(false)"> Exposure</INPUT>\
+<BR><INPUT id="fixedCanvasSize" type="checkbox" onchange="guiReadParameters(true)"> Fixed Canvas Size</INPUT>\
+<BR><DIV class="MBLabel" >Width</DIV><INPUT id="fixedCanvasWidth" class="MBInput" onchange="guiReadParameters(true)"/></input>\
+<BR><DIV class="MBLabel" >Height</DIV><INPUT id="fixedCanvasHeight" class="MBInput" onchange="guiReadParameters(true)"/></input>\
 </DIV>\
 \
 <DIV id="Navigator" class="MBPanel">\

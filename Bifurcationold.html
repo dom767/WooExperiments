@@ -1,0 +1,242 @@
+<HTML>
+<HEAD>
+<STYLE>
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
+canvas1 {display:block;}
+div.MBMenu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:420px;height:40px;top:50px;left:50px;color:white;}
+.MBMenu2 {position:fixed;font-size:12px;color:#AAA;padding:0px;border-width:0px;background-color:rgba(1,0,1,0.8);width:220px;height:36px;text-align:center;top:41px;right:50px;padding:10px;}
+.MBMenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
+.MBMenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
+.MBPanel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+.MBLabel {padding:2px;width:120px;float:left;}
+.MBInput {padding:2px;width:120px;style="text-align:right";}
+a {color:#FFF;font-size:16px;text-decoration:none;}
+a:hover {color:#F93;}
+</STYLE>
+
+<SCRIPT>
+
+var gWidth = window.innerWidth;
+var gHeight = window.innerHeight;
+var gFloatBuffer = new Float32Array(gWidth * gHeight);
+var gDirty = true;
+var gIterations = 0;
+var gStartIterations = 100;
+var gStartX = 0.5;
+var gStartY = 0.5;
+var gZoom = 1;
+
+function Initialise()
+{
+ // var canvas = document.getElementById('canvas1');
+ // gWidth = canvas.width;
+ // gHeight = canvas.height;
+ AddEventListeners();
+ setTimeout(Tick, 17);
+}
+
+function DrawPixelFloatAdd(imageData, x, y, val)
+{
+ var ix = Math.floor(x);
+ var iy = Math.floor(y);
+ var dx = x-parseFloat(ix);
+ var dy = y-parseFloat(iy);
+ 
+ if (ix<gWidth && iy<gHeight && ix>=0 && iy>=0) imageData[ix+iy*gWidth] += val*(1-dx)*(1-dy);
+ if (ix+1<gWidth && iy<gHeight && ix+1>=0 && iy>=0) imageData[ix+1+iy*gWidth] += val*dx*(1-dy);
+ if (ix<gWidth && iy+1<gHeight && ix>=0 && iy+1>=0) imageData[ix+(iy+1)*gWidth] += val*(1-dx)*dy;
+ if (ix+1<gWidth && iy+1<gHeight && ix+1>=0 && iy+1>=0) imageData[ix+1+(iy+1)*gWidth] += val*dx*dy;
+}
+
+function logistic(r, x) {
+    return r * x * (1 - x);
+}
+
+function max(a, b)
+{
+ if (a>b) return a;
+ return b;
+}
+
+function DrawBifurcationPlot()
+{
+ if (gDirty)
+ {
+  for (var y=0; y<gHeight; y++)
+   for (var x=0; x<gWidth; x++)
+    {
+	 gFloatBuffer[x + y*gWidth] = 0.0;
+	}
+  gDirty = false;
+  gIterations = 0;
+ }
+
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,gWidth,gHeight);
+    
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+  var rMin = 2.4;
+  var rMax = 4.0;
+  var step = (1/gZoom) * (rMax-rMin) / gWidth;
+  
+  // move the start points and modify step
+  
+  var rStart = rMin+(gStartX-(1/gZoom)*0.5)*(rMax-rMin);
+  var xValue = Math.random();
+  var incrementalX = Math.random();
+	 for (i=0; i<gWidth; i++)
+	 {
+	  xValue = 0.5;
+	  for (j=0; j<1000; j++)
+	  {
+	   xValue = logistic(rStart+(incrementalX/(gZoom*gWidth)), xValue);
+	   if (j>gStartIterations) DrawPixelFloatAdd(gFloatBuffer, parseFloat(i)+incrementalX, gHeight*(0.5+(gZoom*(xValue-gStartY))), 0.055);
+	  }
+	  rStart+=step;
+	 }
+	
+ for (var y=0; y<gHeight; y++)
+ {
+   for (var x=0; x<gWidth; x++)
+    {
+	 imageData.data[(4*(x+y*gWidth))+0] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
+	 imageData.data[(4*(x+y*gWidth))+1] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
+	 imageData.data[(4*(x+y*gWidth))+2] = max(gFloatBuffer[x + y*gWidth],0,1)*255.99*(gZoom*4/gIterations);
+	 imageData.data[(4*(x+y*gWidth))+3] = 255;
+	}
+	} 
+   ctx.putImageData(imageData,0,0);
+ }
+ gIterations++;
+}
+
+function Tick()
+{
+ DrawBifurcationPlot();
+ setTimeout(Tick, 17);
+}
+
+let previousMousePosition = { x: 0, y: 0 };
+let isDragging = false;
+
+function AddEventListeners()
+{
+	const canvas = document.getElementById('canvas1');
+	canvas.addEventListener('mousedown', (event) => {
+		isDragging = true;
+		previousMousePosition = { x: event.clientX, y: event.clientY };
+	});
+
+	document.addEventListener('mousemove', (event) => {
+
+		if (isDragging)
+		{
+			let deltaX = event.clientX - previousMousePosition.x;
+			let deltaY = event.clientY - previousMousePosition.y;
+			
+			gStartX -= deltaX / (gWidth*gZoom);
+			gStartY -= deltaY / (gWidth*gZoom);
+
+			// Store the new mouse position for the next frame
+			previousMousePosition = { x: event.clientX, y: event.clientY };
+			gDirty = true;
+		}
+	});
+
+	document.addEventListener('mouseup', () => {
+			console.log('Mouse Up');
+		isDragging = false;
+	});
+
+	window.addEventListener('wheel', function(event) {
+		if (event.deltaY > 0) {
+			console.log('Scrolled down');
+			gZoom = gZoom*0.94;
+			gDirty = true;
+		} else if (event.deltaY < 0) {
+			console.log('Scrolled up');
+			gZoom = gZoom*1.08;
+			gDirty = true;
+		}
+		// Prevent default scrolling behavior if necessary
+		// event.preventDefault();
+	}, false);
+}	
+
+function CreateCanvas(fullwidth, settings, width, height, x, y, zoom)
+{
+if (fullwidth)
+{
+document.write('\
+<DIV style="float: left;">\
+<CANVAS style="canvas1" id="canvas1" width="'+window.innerWidth+'" height="'+window.innerHeight+'" style="border:1px solid #000000;"></canvas>\
+</DIV>');
+}
+else
+{
+document.write('\
+<CANVAS style="canvas1" id="canvas1" width="'+width+'" height="'+height+'" style="border:1px solid #000000;"></canvas>\
+');
+gFullScreen = false;
+}
+
+if (false)
+{
+document.write('\
+<DIV class="MBMenu">\
+<DIV class="MBMenuOpt" onclick="guiMenuSettings()">Settings</DIV>\
+<DIV class="MBMenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>\
+<DIV class="MBMenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>\
+<DIV class="MBMenuOpt" onclick="guiMenuHide()">Hide</DIV>\
+</DIV>\
+<DIV class="MBMenu2">\
+<A href="http://www.woofractal.com/">WOOFRACTAL.COM</A><BR>Understanding Fractals\
+</DIV>\
+\
+<DIV id="Settings" class="MBPanel">\
+<DIV id="stats">\
+X : 20<BR>\
+Y : 714<BR>\
+Zoom : 3.1\
+</DIV>\
+<BR>Settings\
+<BR><INPUT id="smoothShading" checked="true" type="checkbox" onchange="guiReadParameters(false, true)"> Smooth Shading</INPUT>\
+<BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters(false, true)"> Julia Mode</INPUT>\
+<BR><INPUT id="aaEnabled" type="checkbox" onchange="guiReadParameters(false, true)"> aaEnabled</INPUT>\
+<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters(false, false)"> Scale Colour</INPUT>\
+<BR><DIV class="MBLabel" >Max Iterations</DIV><INPUT id="maxIterations" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
+<BR><DIV class="MBLabel" >Offset</DIV><INPUT id="colourOffset" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
+<BR><DIV class="MBLabel" >Multiplier</DIV><INPUT id="colourMultiplier" class="MBInput" onchange="guiReadParameters(false, false)"/></input>\
+<BR><INPUT id="fullScreen" type="checkbox" onchange="guiReadParameters(true, true)"> Fullscreen</INPUT>\
+<BR><DIV class="MBLabel" >Width</DIV><INPUT id="width" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
+<BR><DIV class="MBLabel" >Height</DIV><INPUT id="height" class="MBInput" onchange="guiReadParameters(true, true)"/></input>\
+</DIV>\
+\
+<DIV id="JuliaSelector" class="MBPanel">\
+<CANVAS style="canvas1" id="pickerCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>\
+<DIV id="JuliaStats">\
+</DIV>\
+</DIV>\
+\
+<DIV id="OrbitViewer" class="MBPanel">\
+<CANVAS style="canvas1" id="orbitCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>\
+<BUTTON id="selectOrbit" onclick="guiSelectNewOrbit()">Select New Orbit : Always</BUTTON>\
+</DIV>');
+}
+
+Initialise();
+}
+
+</SCRIPT>
+
+</HEAD>
+<BODY id="body">
+
+<script>
+CreateCanvas(true, true, 1200, 1000, 0, 0, 0.5);
+</script>
+</BODY>
+</HTML>

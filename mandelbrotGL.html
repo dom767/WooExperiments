@@ -1,0 +1,1287 @@
+<HTML>
+<HEAD>
+<STYLE>
+* {font-family:verdana;font-size:14;margin:0;padding:0;}
+canvas1 {display:block;}
+</STYLE>
+<script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+<SCRIPT>
+
+var stop=false;
+var gZoom=0.5;
+var gPosX=0;
+var gPosY=0;
+var mandelArray=new Array();
+var juliaArray=new Array();
+var gWidth = window.innerWidth;
+var gHeight = window.innerHeight;
+
+// progressive renderer
+var gComplete = true;
+var gProgressiveIndex = 0;
+var gProgressiveLevel = 16;
+var gSmoothShading = true;
+var gJuliaMode = false;
+var gAAEnabled = true;
+var gScaleColour = false;
+var gMaxIterations = 32;
+
+//////////////////////////COLOUR///////////////////////////////
+function colour(r, g, b)
+{
+ this.mR = r;
+ this.mG = g;
+ this.mB = b;
+}
+
+//////////////////////////VEC2/////////////////////////////////
+function vec2(x, y)
+{
+ this.mX = x;
+ this.mY = y;
+}
+
+//////////////////////////COLOURKEYGFRAME///////////////////////////////
+function ColourKeyframe(pos, col)
+{
+ this.mColour = col;
+ this.mPosition = pos;
+}
+
+//////////////////////////COLOURGRADIENT///////////////////////////////
+function ColourGradient()
+{
+ this.mColourKeyframe = new Array();
+ this.mColourKeyframe[0] = new ColourKeyframe(0.0, new colour(0,0,0));
+ this.mColourKeyframe[1] = new ColourKeyframe(1.0, new colour(1,1,1));
+}
+
+ColourGradient.prototype.AddKeyframe = function()
+{
+ var position = arguments[0];
+ var colour = arguments[1];
+
+ for (i=0; i<this.mColourKeyframe.length; i++)
+ {
+   var start = this.mColourKeyframe[i].mPosition;
+   var end = 1;
+   if (i<this.mColourKeyframe.length-1)
+   {
+    end = this.mColourKeyframe[i+1].mPosition;
+   }
+  if (position>start && position<=end)
+  {
+   var numShuffle = this.mColourKeyframe.length - (i+1);
+   this.mColourKeyframe[this.mColourKeyframe.length] = this.mColourKeyframe[this.mColourKeyframe.length-1];
+   for (j=0; j<numShuffle; j++)
+   {
+    this.mColourKeyframe[(this.mColourKeyframe.length-1)-j] = this.mColourKeyframe[((this.mColourKeyframe.length-1)-j)-1] 
+   }
+   this.mColourKeyframe[i+1] = new ColourKeyframe(position, colour);
+  }
+ }
+}
+
+ColourGradient.prototype.GetColour = function()
+{
+ var position = arguments[0];
+ for (i=0; i<this.mColourKeyframe.length; i++)
+ {
+   var start = this.mColourKeyframe[i].mPosition;
+   var end = 1;
+   if (i<this.mColourKeyframe.length-1)
+   {
+    end = this.mColourKeyframe[i+1].mPosition;
+   }
+  if (position>=start && position<=end)
+  {
+   var delta = (position-start) / (end-start);
+   var r = this.mColourKeyframe[i+1].mColour.mR * delta + this.mColourKeyframe[i].mColour.mR * (1-delta);
+   var g = this.mColourKeyframe[i+1].mColour.mG * delta + this.mColourKeyframe[i].mColour.mG * (1-delta);
+   var b = this.mColourKeyframe[i+1].mColour.mB * delta + this.mColourKeyframe[i].mColour.mB * (1-delta);
+   return new colour(r, g, b);
+  }
+ }
+}
+
+var gColourGradient = new ColourGradient();
+
+function clamp(value, min, max)
+{
+ if (value<=min) return min;
+ if (value>=max) return max;
+ return value;
+}
+
+function ReadQueryString()
+{
+ var urlParams;
+ var match, pl= /\+/g, search = /([^&=]+)=?([^&]*)/g;
+ var decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+ var query  = window.location.search.substring(1);
+
+ urlParams = {};
+ while (match = search.exec(query))
+  urlParams[decode(match[1])] = decode(match[2]);
+  
+ if (urlParams["x"] != null)
+  gPosX = parseFloat(urlParams["x"]);
+ if (urlParams["y"] != null)
+  gPosY = parseFloat(urlParams["y"]);
+ if (urlParams["z"] != null)
+  gZoom = parseFloat(urlParams["z"]);
+ if (urlParams["m"] != null)
+  gJuliaMode = (parseInt(urlParams["m"])>0 ? true : false);
+ if (urlParams["jx"] != null)
+  gJuliaX = parseFloat(urlParams["jx"]);
+ if (urlParams["jy"] != null)
+  gJuliaY = parseFloat(urlParams["jy"]);
+}
+
+function SetPalette(index)
+{
+ var palette = [[[0,0,0],[0,0.5,1],[1,1,1],[1,0.5,0],[0,0,0],[1,1,1]],
+ [[1,1,1],[0,0.5,1],[1,1,1],[1,0.5,0],[1,1,1],[0,0,0]],
+ [[1,0,0],[0.8,0.8,0.1],[0.05,0.8,0.5],[0.05,0.1,0.7],[0.05,0.8,0.6],[0,0,0]],
+ [[0,0,0],[1,1,1],[0,0,0],[1,1,1],[0,0,0],[1,1,1]],
+ [[0,0,0],[0,1,0],[0.3,0.95,1],[0.95,1,0.35],[1,0.2,0],[0,0,0]]];
+ 
+ gColourGradient.mColourKeyframe[0].mColour = new colour(palette[index][0][0], palette[index][0][1], palette[index][0][2])
+ gColourGradient.mColourKeyframe[1].mColour = new colour(palette[index][1][0], palette[index][1][1], palette[index][1][2])
+ gColourGradient.mColourKeyframe[2].mColour = new colour(palette[index][2][0], palette[index][2][1], palette[index][2][2])
+ gColourGradient.mColourKeyframe[3].mColour = new colour(palette[index][3][0], palette[index][3][1], palette[index][3][2])
+ gColourGradient.mColourKeyframe[4].mColour = new colour(palette[index][4][0], palette[index][4][1], palette[index][4][2])
+ gColourGradient.mColourKeyframe[5].mColour = new colour(palette[index][5][0], palette[index][5][1], palette[index][5][2])
+}
+
+function Initialise()
+{
+ ReadQueryString();
+ for (y=0; y<gHeight; y++)
+  for (x=0; x<gWidth; x++)
+   {
+    mandelArray[(x+gWidth*y)]=Math.random()*255.99;
+   }
+ gColourGradient.AddKeyframe(0.6, new colour(1,0.5,0));
+ gColourGradient.AddKeyframe(0.4, new colour(1,1,1));
+ gColourGradient.AddKeyframe(0.2, new colour(0,0.5,1));
+ gColourGradient.AddKeyframe(0.8, new colour(0,0,0));
+ RenderAgain();
+ guiSetInitialParams();
+ document.getElementById("canvas1").addEventListener("mousedown", canvasMouseDown);
+ document.getElementById("body").addEventListener("mouseup", MouseUp);
+ document.addEventListener("keydown", KeyDown);
+ document.addEventListener("mouseleave", MouseLeave);
+ document.addEventListener("mousemove", MouseMove);
+ document.addEventListener("mousewheel", MouseWheel);
+ window.addEventListener("resize", ResizeWindow);
+ ResizeWindow();
+ guiMenuVisibility(false, false, false);
+ 
+ InitialiseGL();
+ setTimeout(Tick, 17);
+}
+
+function GetRows(progressiveLevel)
+{
+ switch(progressiveLevel)
+ {
+  case 16:
+   return gHeight;
+   break;
+  case 8:
+   return gHeight;
+   break;
+  case 4:
+   return gHeight/4;
+   break;
+  case 2:
+   return gHeight/16;
+   break;
+  case 1:
+   return gHeight/64;
+   break;
+  case 0.5:	
+   return gHeight/64;
+   break;
+  case 0.25:	
+   return gHeight/64;
+   break;
+ }
+ return gHeight;
+}
+
+function DrawOrbit()
+{
+ var canvas = document.getElementById('orbitCanvas');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,400,300);
+
+  var orbitPoints = new Array();
+  var orbitIndex = 0;
+
+  var mx = gCanvasX;
+  var my = gCanvasY;
+  var newx = 0;
+  var newy = 0;
+  if (gJuliaMode) {newx += mx;newy+=my;}
+  var oldx = 0;
+  var oldy = 0;
+  var mag2 = 0;
+  orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+
+  for (var i=0; i<gMaxIterations & mag2 < 4; i++)
+  {
+   oldx = newx;
+   oldy = newy;
+   newx = oldx * oldx - oldy * oldy + mx;
+   newy = 2 * oldx * oldy + my;
+   if (gJuliaMode) {newx += gJuliaX-mx;newy+=gJuliaY-my;}
+   orbitPoints[orbitIndex++] = new vec2(newx, newy);	
+   mag2 = newx*newx + newy*newy;
+  }
+
+  for (var i=0; i<orbitIndex; i++)
+  {
+   ctx.beginPath();
+   var col = gColourGradient.GetColour(i/gMaxIterations);
+   ctx.strokeStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.fillStyle = 'rgb('+col.mR*255.99+','+col.mG*255.99+','+col.mB*255.99+')'
+   ctx.arc(200 + 100*orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY, 5, 0, Math.PI*2);
+   ctx.fill();
+   if (i+1<orbitIndex)
+   {
+    ctx.beginPath();
+    ctx.moveTo(200 + 100 * orbitPoints[i].mX, 150 + 100*orbitPoints[i].mY);
+    ctx.lineTo(200 + 100 * orbitPoints[i+1].mX, 150 + 100*orbitPoints[i+1].mY);
+	ctx.stroke();
+   }
+   
+  }
+ }
+}
+
+function DrawJulia()
+{
+ var canvas = document.getElementById('pickerCanvas');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, 400, 300);
+
+  for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var idx = (x+y*400);
+	var m = juliaArray[idx];
+    var col = gColourGradient.GetColour(m/gMaxIterations);
+	
+	imageData.data[4*(x+y*400)] = col.mR*255.99;
+    imageData.data[4*(x+y*400)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*400)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*400)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+
+function CalculateJulia()
+{
+ var rZoom = 2;
+ for (y=0; y<300; y++)
+   for (x=0; x<400; x++)
+   {
+    var mx = rZoom * (x-(400/2)) / (400/2)
+    var my = rZoom * (y-(300/2)) / (400/2)
+    var newx = mx;
+  	var newy = my;
+	var oldx = 0;
+	var oldy = 0;
+	var mag2 = 0;
+	
+    for (var i=0; i<gMaxIterations & mag2 < 4; i++)
+  	{
+	 oldx = newx;
+	 oldy = newy;
+	 newx = oldx * oldx - oldy * oldy + gCanvasX;
+	 newy = 2 * oldx * oldy + gCanvasY;
+	 mag2 = newx*newx + newy*newy;
+	}
+	
+	var iterations = i;
+	juliaArray[x+y*400] = clamp(iterations,0,gMaxIterations);
+   }
+}
+
+const vs = `
+  // an attribute will receive data from a buffer
+  attribute vec4 a_position;
+ 
+  // all shaders have a main function
+  void main() {
+ 
+    // gl_Position is a special variable a vertex shader
+    // is responsible for setting
+    gl_Position = a_position;
+  }
+`;
+
+const fs = `
+  precision highp float;
+  precision highp int;
+  
+  uniform vec2 u_resolution;
+  uniform vec3 gPos;
+  uniform float gMaxIterations;
+  uniform vec3 colour0;
+  uniform vec3 colour1;
+  uniform vec3 colour2;
+  uniform vec3 colour3;
+  uniform vec3 colour4;
+  uniform vec3 colour5;
+  
+  const int vals=10;
+  const int limit=10000;
+  const float limitFloat = float(limit);
+
+  void negate(out int[10] val)
+  {
+   for(int i = 0; i < 10; i++) { val[i] = -val[i]; }
+  }
+  
+  bool signp(int[10] a)
+  {
+	return (a[9] >= 0);
+  }
+  
+  void roundOff(out int keepVal, out int carry, int x) {
+	carry = x / limit;
+	keepVal = x - carry * limit;
+  }
+  
+  void add(out int[10] ret, int[10] val1, int[10] val2)
+  {
+    bool s1 = signp(val1), s2 = signp(val2);
+
+	int carry = 0;
+	int keepVal;
+
+	for(int i = 0; i < 10-1; i++) {
+		roundOff(keepVal, carry, val1[i] + val2[i] + carry);
+
+		if(keepVal < 0) {
+			keepVal += limit;
+			carry--;
+		}
+
+		ret[i] = keepVal;
+	}
+	roundOff(keepVal, carry, val1[10-1] + val2[10-1] + carry);
+	ret[10-1] = keepVal;
+	
+	if(s1 != s2 && !signp(ret)) {
+		negate(ret);
+
+		carry = 0;
+
+		for(int i = 0; i < 10; i++) {
+			roundOff(keepVal, carry, ret[i] + carry);
+
+			if(keepVal < 0) {
+				keepVal += limit;
+				carry--;
+			}
+
+			ret[i] = keepVal;
+		}
+
+		negate(ret);
+	}
+  }
+ 
+  void mul(out int[10] ret, int[10] val1, int[10] val2)
+  {
+     bool toNegate = false;
+
+	if(!signp(val1)) {
+		negate(val1);
+		toNegate = !toNegate;
+	}
+	if(!signp(val2)) {
+		negate(val2);
+		toNegate = !toNegate;
+	}
+
+	const int lenProd = (9)*2+1;
+	int prod[lenProd];
+    for(int i = 0; i < lenProd; i++) { prod[i] = 0; }
+
+	for(int i = 0; i < 10; i++) {
+		for(int j = 0; j < 10; j++) {
+			prod[i+j] += val1[i] * val2[j];
+		}
+	}
+
+	int carry = 0;
+	const int clip = lenProd - 10;
+	int keepVal;
+	for(int i = 0; i < clip; i++) {
+		roundOff(keepVal, carry, prod[i] + carry);
+		prod[i] = keepVal;
+	}
+
+	if(prod[clip-1] >= limit/2) {
+		carry++;
+	}
+
+	for(int i = clip; i < lenProd; i++) {
+		roundOff(keepVal, carry, prod[i] + carry);
+		prod[i] = keepVal;
+	}
+
+	for(int i = 0; i < lenProd - clip; i++) {
+		ret[i] = prod[i+clip];
+	}
+
+	if(toNegate) {
+		negate(ret);
+	}   
+  }
+  
+  void assign(out int[10] ret, int[10] val)
+  {
+   for(int i=0; i<10; i++)
+   {
+    ret[i] = val[i];
+   }
+  }
+  
+  void load(out int[10] ret, float val)
+  {
+   for(int i=9; i>=0; i--)
+   {
+    int fCurr = int(val);
+	ret[i] = fCurr;
+	val -= float(fCurr);
+	val *= limitFloat;
+   }
+  }
+  
+  bool greater(int[10] val1, int[10] val2)
+  {
+   for(int i=9; i>=0; i--)
+   {
+    if (val1[i]>val2[i])
+	 return true;
+	if (val1[i]<val2[i])
+	 return false;
+   }
+   return false;
+  }
+
+  void main() {
+    // gl_FragColor is a special variable a fragment shader
+    // is responsible for setting
+    int mx[10];load(mx, gPos.x + gPos.z * (gl_FragCoord.x-(u_resolution.x/2.0)) / (u_resolution.x/2.0));
+    int my[10];load(my, -gPos.y + gPos.z * (gl_FragCoord.y-(u_resolution.y/2.0)) / (u_resolution.x/2.0));
+  	  int newx[10];load(newx, 0.0);
+  	  int newy[10];load(newy, 0.0);
+	//  if (gJuliaMode) {newx += mx;newy+=my;}
+	  int oldx[10];load(oldx, 0.0);
+	  int oldy[10];load(oldy, 0.0);
+	  int mag2[10];load(mag2, 0.0);
+      int bound[10];
+	  load(bound, 256.0*256.0);
+	  float i=0.0;
+	
+      for (int iter=0; iter<256; iter++)
+  	  {
+	   assign(oldx, newx);
+	   assign(oldy, newy);
+/*	   if (gJuliaMode)
+	   {
+	    newx = oldx * oldx - oldy * oldy + gJuliaX;
+		newy = 2 * oldx * oldy + gJuliaY;
+	   }
+	   else
+	   {
+	*/  
+        int oldx2[10];
+		int oldy2[10];
+		mul(oldx2, oldx, oldx);
+		mul(oldy2, oldy, oldy);
+		assign(newx, oldy2);
+		negate(newx);
+		mul(newx, newx, oldx2);
+		add(newx, newx, mx);
+		
+		load(newy, 2.0);
+		mul(newy, newy, oldx);
+		mul(newy, newy, oldy);
+		add(newy, newy, my);
+		
+		int newx2[10];
+		int newy2[10];
+		mul(newx2, newx, newx);
+		mul(newy2, newy, newy);
+		add(mag2, newx2, newy2);
+		
+		if (greater(mag2, bound)) break;
+
+        
+//		newx = add(add(mul(oldx, oldx), negate(mul(oldy, oldy))), mx);
+	//    newy = add(mul(mul(2.0, oldx), oldy), my);
+  	  // }
+//	   mag2 = add(mul(newx,newx), mul(newy,newy));
+	//   if (mag2 >=256.0*256.0) break;
+	   i++;
+	  }
+	
+	int test[10];load(test, gPos.x + gPos.z * (gl_FragCoord.x-(u_resolution.x/2.0)) / (u_resolution.x/2.0));
+    int ten[10];load(ten, 0.0);
+ 	  add(test, test, ten);
+	  add(test, test, ten);
+	  float iterations = float(test[8])/30.0;
+
+//      if (/*gSmoothShading && */greater(mag2, bound))
+	//  {
+//	   iterations += 4.0 - (log(log(sqrt(float(mag2[9])))) / log(2.0));
+//	  }
+	  
+	vec4 mandel = vec4(iterations/256.0,iterations/256.0, iterations/256.0, 1);
+	/*
+	if (mandel.x<0.2) mandel = vec4(mix(colour0, colour1, mandel.x/0.2), 1);
+	else if (mandel.x<0.4) mandel = vec4(mix(colour1, colour2, (mandel.x-0.2)/0.2), 1);
+	else if (mandel.x<0.6) mandel = vec4(mix(colour2, colour3, (mandel.x-0.4)/0.2), 1);
+	else if (mandel.x<0.8) mandel = vec4(mix(colour3, colour4, (mandel.x-0.6)/0.2), 1);
+	else if (mandel.x<=1.0) mandel = vec4(mix(colour4, colour5, (mandel.x-0.8)/0.2), 1);
+	  */ 
+    gl_FragColor = mandel;
+  }
+`;
+
+const fs2 = `
+  precision highp float;
+  
+  uniform sampler2D texture;
+  uniform vec2 u_resolution;
+  
+  void main() {
+    vec4 mandel = texture2D(texture, vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.y));
+	
+	gl_FragColor = mandel;
+	
+  }
+`;
+
+var gRenderProgram=0;
+var gTransferProgram=0;
+var gPositionBuffer=0;
+var gTargetTexture=0;
+var gFrameBuffer=0;
+
+function InitialiseGL()
+{
+ const canvas = document.getElementById('canvas1');
+ const gl = canvas.getContext("webgl2");
+ if (!gl) return;
+
+ // goodCitizen
+ if (gFrameBuffer!=0) gl.deleteFramebuffer(gFrameBuffer);
+ if (gTargetTexture!=0) gl.deleteTexture(gTargetTexture);
+ if (gPositionBuffer!=0) gl.deleteBuffer(gPositionBuffer);
+ if (gRenderProgram!=0) gl.deleteProgram(gRenderProgram);
+ if (gTransferProgram!=0) gl.deleteProgram(gTransferProgram);
+ 
+ // setup GLSL program
+ gRenderProgram = webglUtils.createProgramFromSources(gl, [vs, fs]);
+ 
+ // setup GLSL program2
+ gTransferProgram = webglUtils.createProgramFromSources(gl, [vs, fs2]);
+
+ // Create a buffer to put three 2d clip space points in
+ gPositionBuffer = gl.createBuffer();
+ 
+ // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = gPositionBuffer)
+ gl.bindBuffer(gl.ARRAY_BUFFER, gPositionBuffer);
+ 
+ // fill it with a 2 triangles that cover clip space
+ gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+   -1, -1,  // first triangle
+    1, -1,
+   -1,  1,
+   -1,  1,  // second triangle
+    1, -1,
+    1,  1,
+ ]), gl.STATIC_DRAW);
+  
+ // create texture to render to
+ const targetTextureWidth = gl.canvas.width;
+ const targetTextureHeight = gl.canvas.height;
+ gTargetTexture = gl.createTexture();
+ gl.bindTexture(gl.TEXTURE_2D, gTargetTexture);
+ 
+ {
+  // define size and format of level 0
+  const level = 0;
+  const internalFormat = gl.RGBA;
+  const border = 0;
+  const format = gl.RGBA;
+  const type = gl.UNSIGNED_BYTE;
+  const data = null;
+  gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                targetTextureWidth, targetTextureHeight, border,
+                format, type, data);
+ 
+  // set the filtering so we don't need mips
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+ }
+ 
+ // Create the framebuffer
+ gFrameBuffer = gl.createFramebuffer();
+
+ // catch up with any canvas resize behaviour
+ webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+}
+
+function DrawMandelbrotGL()
+{
+ const canvas = document.getElementById('canvas1');
+ const gl = canvas.getContext("webgl2");
+ if (!gl) return;
+  
+ InitialiseGL();
+ 
+ // look up where the vertex data needs to go.
+ const positionAttributeLocation = gl.getAttribLocation(gRenderProgram, "a_position");
+  
+ // look up uniform locations
+ const resolutionLocation = gl.getUniformLocation(gRenderProgram, "u_resolution");
+ const gPosLocation = gl.getUniformLocation(gRenderProgram, "gPos");
+ const gMaxIterationsLocation = gl.getUniformLocation(gRenderProgram, "gMaxIterations");
+ const colour0Location = gl.getUniformLocation(gRenderProgram, "colour0");
+ const colour1Location = gl.getUniformLocation(gRenderProgram, "colour1");
+ const colour2Location = gl.getUniformLocation(gRenderProgram, "colour2");
+ const colour3Location = gl.getUniformLocation(gRenderProgram, "colour3");
+ const colour4Location = gl.getUniformLocation(gRenderProgram, "colour4");
+ const colour5Location = gl.getUniformLocation(gRenderProgram, "colour5");
+  
+ const resolutionLocation2 = gl.getUniformLocation(gTransferProgram, "u_resolution");
+
+ gl.bindFramebuffer(gl.FRAMEBUFFER, gFrameBuffer);
+ 
+ // attach the texture as the first color attachment
+ const attachmentPoint = gl.COLOR_ATTACHMENT0;
+ gl.framebufferTexture2D(gl.FRAMEBUFFER, attachmentPoint, gl.TEXTURE_2D, gTargetTexture, 0);
+
+ // Tell WebGL how to convert from clip space to pixels
+ gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+ 
+ // Tell it to use our program (pair of shaders)
+ gl.useProgram(gRenderProgram);
+ 
+ // Turn on the attribute
+ gl.enableVertexAttribArray(positionAttributeLocation);
+ 
+ // Bind the position buffer.
+ gl.bindBuffer(gl.ARRAY_BUFFER, gPositionBuffer);
+ 
+ // Tell the attribute how to get data out of gPositionBuffer (ARRAY_BUFFER)
+ gl.vertexAttribPointer(
+     positionAttributeLocation,
+     2,          // 2 components per iteration
+     gl.FLOAT,   // the data is 32bit floats
+     false,      // don't normalize the data
+     0,          // 0 = move forward size * sizeof(type) each iteration to get the next position
+     0,          // start at the beginning of the buffer
+ );
+  
+ gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height)
+ gl.uniform3f(gPosLocation, gPosX, gPosY, 1 / gZoom);
+ gl.uniform1f(gMaxIterationsLocation, gMaxIterations);
+ gl.uniform3f(colour0Location, gColourGradient.mColourKeyframe[0].mColour.mR, gColourGradient.mColourKeyframe[0].mColour.mG, gColourGradient.mColourKeyframe[0].mColour.mB)
+ gl.uniform3f(colour1Location, gColourGradient.mColourKeyframe[1].mColour.mR, gColourGradient.mColourKeyframe[1].mColour.mG, gColourGradient.mColourKeyframe[1].mColour.mB)
+ gl.uniform3f(colour2Location, gColourGradient.mColourKeyframe[2].mColour.mR, gColourGradient.mColourKeyframe[2].mColour.mG, gColourGradient.mColourKeyframe[2].mColour.mB)
+ gl.uniform3f(colour3Location, gColourGradient.mColourKeyframe[3].mColour.mR, gColourGradient.mColourKeyframe[3].mColour.mG, gColourGradient.mColourKeyframe[3].mColour.mB)
+ gl.uniform3f(colour4Location, gColourGradient.mColourKeyframe[4].mColour.mR, gColourGradient.mColourKeyframe[4].mColour.mG, gColourGradient.mColourKeyframe[4].mColour.mB)
+ gl.uniform3f(colour5Location, gColourGradient.mColourKeyframe[5].mColour.mR, gColourGradient.mColourKeyframe[5].mColour.mG, gColourGradient.mColourKeyframe[5].mColour.mB)
+ 
+ gl.drawArrays(
+     gl.TRIANGLES,
+     0,     // offset
+     6,     // num vertices to process
+ );
+  
+ // render to the canvas (prep for incremental renderer)
+ gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+ 
+ // render the cube with the texture we just rendered to
+ gl.bindTexture(gl.TEXTURE_2D, gTargetTexture);
+ 
+ // Tell WebGL how to convert from clip space to pixels
+ gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+ // Tell it to use our program (pair of shaders)
+ gl.useProgram(gTransferProgram );
+
+ gl.uniform2f(resolutionLocation2, gl.canvas.width, gl.canvas.height)
+
+ gl.drawArrays(
+     gl.TRIANGLES,
+     0,     // offset
+     6,     // num vertices to process
+ );
+
+}
+
+function DrawMandelbrot()
+{  
+ DrawMandelbrotGL();
+ return;
+
+ var min=gMaxIterations;
+ var max=0;
+ if (gScaleColour)
+ {
+  for (i=0; i<gWidth*gHeight; i++)
+  {
+   if (mandelArray[i]<min) min=mandelArray[i];
+   if (mandelArray[i]>max) max=mandelArray[i];
+  }
+ }
+
+ var canvas = document.getElementById('canvas1');
+ if (canvas.getContext)
+ {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, gWidth, gHeight);
+
+  ctx.clearRect(0,0,gWidth,gHeight);
+  
+  rows = GetRows(gProgressiveLevel);
+ 
+  for (y=0; y<gHeight; y++)
+   for (x=0; x<gWidth; x++)
+   {
+    var idx = (x+y*gWidth);
+	var m = mandelArray[idx];
+	if (gScaleColour)
+	{
+	 m = (mandelArray[idx]-min) * (gMaxIterations/(max-min));
+	}
+    var col = gColourGradient.GetColour(m/gMaxIterations);
+	
+	if (y==Math.floor(rows*gProgressiveIndex) && gProgressiveIndex>1)
+	{
+	 col = new colour(1,0.5,0);
+	}
+	
+	imageData.data[4*(x+y*gWidth)] = col.mR*255.99;
+    imageData.data[4*(x+y*gWidth)+1] = col.mG*255.99;
+    imageData.data[4*(x+y*gWidth)+2] = col.mB*255.99;
+    imageData.data[4*(x+y*gWidth)+3] = 255;
+    
+   }
+   ctx.putImageData(imageData,0,0);
+ }
+}
+
+function CalculateMandelbrot(progressiveLevel, progressiveIndex)
+{
+ var rows=GetRows(progressiveLevel);
+ var rZoom = 1 / gZoom;
+ var progressive = progressiveLevel>1 ? progressiveLevel : 1;
+ var antialias = progressiveLevel<1 ? 1/progressiveLevel : 1;
+ for (y=Math.floor(rows*progressiveIndex); y<Math.floor(rows*(progressiveIndex+1)); y+=progressive)
+   for (x=0; x<gWidth; x+=progressive)
+   {
+	var sumIterations = 0;
+	for (ay=0; ay<antialias; ay++)
+	 for (ax=0; ax<antialias; ax++)
+	 {
+      var mx = gPosX + rZoom * ((ax*1/antialias)+x-(gWidth/2)) / (gWidth/2)
+      var my = gPosY + rZoom * ((ay*1/antialias)+y-(gHeight/2)) / (gWidth/2)
+  	  var newx = 0;
+  	  var newy = 0;
+	  if (gJuliaMode) {newx += mx;newy+=my;}
+	  var oldx = 0;
+	  var oldy = 0;
+	  var mag2 = 0;
+	
+      for (var i=0; i<gMaxIterations & mag2 < 256*256; i++)
+  	  {
+	   oldx = newx;
+	   oldy = newy;
+	   if (gJuliaMode)
+	   {
+	    newx = oldx * oldx - oldy * oldy + gJuliaX;
+		newy = 2 * oldx * oldy + gJuliaY;
+	   }
+	   else
+	   {
+	    newx = oldx * oldx - oldy * oldy + mx;
+	    newy = 2 * oldx * oldy + my;
+  	   }
+	   mag2 = newx*newx + newy*newy;
+	  }
+	
+	  var iterations = i;
+
+      if (gSmoothShading && mag2>=256*256)
+	  {
+	   iterations += 4 - (Math.log(Math.log(Math.sqrt(mag2))) / Math.log(2));
+	  }
+	   
+	  sumIterations += iterations;
+	 }
+	sumIterations /= (antialias*antialias);
+    for (py = 0; py<progressive & y+py<gHeight; py++)
+	 for (px=0; px<progressive & x+px<gWidth; px++)
+	 {
+	  mandelArray[x+px+(gWidth*(y+py))] = clamp(sumIterations, 0, gMaxIterations);
+	 }
+   }
+}
+
+function guiDraw()
+{
+ RenderAgain();
+}
+
+var gDragStartX, gDragStartY;
+var gMouseDown = false;
+var gJuliaX=0;
+var gJuliaY=0;
+var gCanvasX=0;
+var gCanvasY=0;
+
+function canvasMouseDown(e)
+{
+ gMouseDown = true;
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ if (gJuliaMode == false &&
+   (document.getElementById("JuliaSelector").hidden == false
+   || document.getElementById("OrbitViewer").hidden == false))
+ {
+  replaceURL();
+  gJuliaX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+  gJuliaY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+  gMouseMoved = true;
+ }
+
+ gDragStartX = canvasX;
+ gDragStartY = canvasY;
+ console.log("Mouse Down : " + canvasX + ", " + canvasY);
+}
+
+function MouseUp(e)
+{
+ gMouseDown = false;
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ console.log("Mouse Up : " + canvasX + ", " + canvasY);
+}
+
+function MouseMove(e)
+{
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ gCanvasX = gPosX+(canvasX-gWidth*0.5)/(gWidth*gZoom*0.5);
+ gCanvasY = gPosY+(canvasY-gHeight*0.5)/(gWidth*gZoom*0.5);
+ gMouseMoved = true;
+
+ if (gMouseDown && (gDragStartX!=canvasX || gDragStartY!=canvasY))
+ {
+  gPosX -= (canvasX - gDragStartX)/((gWidth*gZoom)/2);
+  gPosY -= (canvasY - gDragStartY)/((gWidth*gZoom)/2);
+  gDragStartX = canvasX;
+  gDragStartY = canvasY;
+  RenderAgain();
+ }
+}
+
+function MouseWheel(e)
+{
+ var delta = Math.sign(event.deltaY);
+
+ var worldX = e.pageX;
+ var worldY = e.pageY;
+ 
+ var canvasElement = document.getElementById('canvas1');
+ var canvasX = worldX - canvasElement.offsetLeft;
+ var canvasY = worldY - canvasElement.offsetTop;
+
+ if (delta>0)
+ {// zoom out
+  gPosX -= 0.47*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY -= 0.47*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  SetZoom(gZoom / 1.3);
+  RenderAgain();
+ }
+ else
+ {// zoom in
+  SetZoom(gZoom * 1.3);
+  gPosX += (1.3*0.5)*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
+  gPosY += (1.3*0.5)*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
+  RenderAgain();
+ }
+  
+}
+
+function KeyDown(e)
+{
+ if (e.shiftKey)
+ {
+  if (e.keyCode == '38')
+  {// up
+   SetZoom(gZoom * 1.1);
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   SetZoom(gZoom / 1.1);
+   RenderAgain();
+  }
+ }
+ else
+ {
+  if (e.keyCode == '38')
+  {// up
+   gPosY -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '40')
+  {// down
+   gPosY += 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '37')
+  {// left
+   gPosX -= 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '39')
+  {// right
+   gPosX += 0.1/gZoom;
+   RenderAgain();
+  }
+  if (e.keyCode == '74')
+  {
+   var guiJuliaMode = document.getElementById('juliaMode');
+   gJuliaMode = !gJuliaMode;
+   guiJuliaMode.checked = gJuliaMode;
+   RenderAgain();
+  }
+  if (e.keyCode == '49')
+  {
+   SetPalette(0);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '50')
+  {
+   SetPalette(1);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '51')
+  {
+   SetPalette(2);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '52')
+  {
+   SetPalette(3);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+  if (e.keyCode == '53')
+  {
+   SetPalette(4);
+   if (gComplete)
+    DrawMandelbrot();
+  }
+ }
+}
+
+function MouseLeave(e)
+{
+ console.log("Mouse Leave");
+ if (gMouseDown)
+  MouseUp(e);
+}
+
+function SetZoom(zoom)
+{
+ gZoom = zoom;
+}
+
+function ResizeWindow()
+{
+ console.log("ResizeWindow (width="+window.innerWidth+", height="+window.innerHeight+")");
+ var canvas = document.getElementById('canvas1');
+ canvas.width = window.innerWidth;
+ gWidth = window.innerWidth;
+ canvas.height = window.innerHeight;
+ gHeight = window.innerHeight;
+ gMouseMoved=true;
+ InitialiseGL();
+ RenderAgain();
+}
+
+function guiSetInitialParams()
+{
+ var guiSmoothShading = document.getElementById('smoothShading');
+ guiSmoothShading.checked = gSmoothShading;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ guiJuliaMode.checked = gJuliaMode;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ guiAAEnabled.checked = gAAEnabled;
+ var guiScaleColour = document.getElementById('scaleColour');
+ guiScaleColour.checked = gScaleColour;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ guiMaxIterations.value = gMaxIterations;
+}
+
+function guiReadParameters()
+{
+ var guiSmoothShading = document.getElementById('smoothShading');
+ gSmoothShading = guiSmoothShading.checked;
+ var guiJuliaMode = document.getElementById('juliaMode');
+ gJuliaMode = guiJuliaMode.checked;
+ var guiAAEnabled = document.getElementById('aaEnabled');
+ gAAEnabled = guiAAEnabled.checked;
+ var guiScaleColour = document.getElementById('scaleColour');
+ gScaleColour = guiScaleColour.checked;
+ var guiMaxIterations = document.getElementById('maxIterations');
+ gMaxIterations = guiMaxIterations.value;
+ RenderAgain();
+}
+
+function RenderAgain()
+{
+ gDirty = true;
+}
+
+var gMouseMoved = true;
+var gJuliaComplete = true;
+
+function DrawLowResolution()
+{
+ CalculateMandelbrot(16);
+ DrawMandelbrot();
+}
+
+function UpdateStats()
+{
+ var statsdiv = document.getElementById('stats');
+ statsdiv.innerHTML="Screen Size<BR>Width : "+gWidth+"<BR>Height : "+gHeight+"<BR><BR>Fractal parameters<BR>Mode : ";
+ if (gJuliaMode)
+  statsdiv.innerHTML+="Julia"
+  else
+  statsdiv.innerHTML+="Mandelbrot"
+ statsdiv.innerHTML+="<BR>X : "+gCanvasX+"<BR>Y : "+gCanvasY+"<BR>Zoom : "+gZoom; 
+}
+
+function replaceURL()
+{
+ if (window.history.replaceState)
+ {
+  window.history.replaceState({}, null, "mandelbrotGL.html?x="+gPosX+"&y="+gPosY+"&z="+gZoom+"&m="+(gJuliaMode?"1":"0")+"&jx="+gJuliaX+"&jy="+gJuliaY);
+ }
+}
+
+function Tick()
+{
+ if (gDirty)
+ {
+  CalculateMandelbrot(16, 0);
+  gProgressiveLevel = 8;
+  gProgressiveIndex = 0;
+  gDirty=false;
+  gComplete=false;
+  replaceURL();
+ }
+ else
+ {
+  if (!gComplete)
+{  CalculateMandelbrot(gProgressiveLevel, gProgressiveIndex);
+  switch(gProgressiveLevel)
+  {
+   case 8:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=1) {gProgressiveLevel=4;gProgressiveIndex=0;}
+    break;
+   case 4:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=4) {gProgressiveLevel=2;gProgressiveIndex=0;}
+    break;
+   case 2:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=16) {gProgressiveLevel=1;gProgressiveIndex=0;}
+    break;
+   case 1:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {if (gAAEnabled) {gProgressiveLevel=0.5;gProgressiveIndex=0;} else {gComplete=true;DrawMandelbrot();}}
+    break;
+   case 0.5:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {gProgressiveLevel=0.25;gProgressiveIndex=0;}
+    break;
+   case 0.25:
+    gProgressiveIndex++;
+	if (gProgressiveIndex>=64) {gComplete=true;DrawMandelbrot();}
+    break;
+  }
+ }}
+ 
+ if (!gComplete)
+  DrawMandelbrot();
+
+ if (document.getElementById("JuliaSelector").hidden == false)
+  TickJulia();
+
+ if (document.getElementById("OrbitViewer").hidden == false)
+  TickOrbit();
+
+ if (document.getElementById("Settings").hidden == false)
+  TickStats();
+
+ setTimeout(Tick, 17);
+}
+
+function TickJulia()
+{
+ if (gMouseMoved)
+ {
+  var jsdiv = document.getElementById("JuliaStats");
+  jsdiv.innerHTML="<BR>Current Mouse Position<BR>Canvas X = "+gCanvasX+"<BR>Canvas Y = "+gCanvasY+"<BR><BR>Click to set Julia params<BR>Julia X = "+gJuliaX+"<BR>Julia Y = "+gJuliaY;
+  CalculateJulia();
+  gJuliaComplete = true;
+  gJuliaDirty = false;
+  DrawJulia();
+ }
+}
+
+function TickOrbit()
+{
+ if (gMouseMoved)
+ {
+  gMouseMoved = false;
+  DrawOrbit();
+ }
+}
+
+function TickStats()
+{
+ if (gMouseMoved)
+ {
+  UpdateStats();
+  gMouseMoved = false;
+ }
+}
+
+function guiMenuVisibility(settings, julia, orbit)
+{
+ document.getElementById("Settings").hidden = !settings;
+ document.getElementById("JuliaSelector").hidden = !julia;
+ document.getElementById("OrbitViewer").hidden = !orbit;
+}
+
+function guiMenuSettings()
+{
+ guiMenuVisibility(true, false, false);
+}
+
+function guiMenuJuliaSelector()
+{
+ guiMenuVisibility(false, true, false);
+}
+
+function guiMenuOrbitViewer()
+{
+ guiMenuVisibility(false, false, true);
+}
+
+function guiMenuHide()
+{
+ guiMenuVisibility(false, false, false);
+}
+
+</SCRIPT>
+
+<STYLE>
+#Menu {position:fixed;padding:0px;border-width:0px;background-color:rgba(0,1,0,0.1);width:420px;height:40px;top:50px;left:50px;color:white;}
+#MenuOpt {float:left;border-width:0px;background-color:rgba(1,0,1,0.8);width:105px;height:40px;color:white;text-align:center;line-height:40px;}
+#MenuOpt:hover {background-color:rgba(255,255,255,0.8);color:black;}
+div.Panel {position:fixed;border-width:0px;padding:10;background-color:rgba(0,0,0,0.5);width:400px;top:90px;left:50px;color:white;}
+.label {padding:2px; width:120px;float:left;}
+.input {padding:2px; width:120px;style="text-align:right;}
+</STYLE>
+
+</HEAD>
+<BODY id="body">
+
+<DIV style="float: left;">
+<CANVAS style="canvas1" id="canvas1" width="100%" height="100%" style="border:1px solid #000000;"></canvas>
+</DIV>
+
+<DIV id="Menu">
+<DIV id="MenuOpt" onclick="guiMenuSettings()">Settings</DIV>
+<DIV id="MenuOpt" onclick="guiMenuJuliaSelector()">Julia Selector</DIV>
+<DIV id="MenuOpt" onclick="guiMenuOrbitViewer()">Orbit Viewer</DIV>
+<DIV id="MenuOpt" onclick="guiMenuHide()">Hide</DIV>
+</DIV>
+
+<DIV id="Settings" class="Panel">
+<DIV id="stats">
+X : 20<BR>
+Y : 714<BR>
+Zoom : 3.1
+</DIV>
+<BR>Settings
+<BR><INPUT id="smoothShading" checked="true" type="checkbox" onchange="guiReadParameters()"> Smooth Shading</INPUT>
+<BR><INPUT id="juliaMode" type="checkbox" onchange="guiReadParameters()"> Julia Mode</INPUT>
+<BR><INPUT id="aaEnabled" type="checkbox" onchange="guiReadParameters()"> aaEnabled</INPUT>
+<BR><INPUT id="scaleColour" type="checkbox" onchange="guiReadParameters()"> Scale Colour</INPUT>
+<BR><DIV class="label" >Max Iterations</DIV><INPUT id="maxIterations" class="input" onchange="guiReadParameters()"/></input>
+</DIV>
+
+<DIV id="JuliaSelector" class="Panel">
+<CANVAS style="canvas1" id="pickerCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+<DIV id="JuliaStats">
+</DIV>
+</DIV>
+
+<DIV id="OrbitViewer" class="Panel">
+<CANVAS style="canvas1" id="orbitCanvas" width=400 height=300 style="border:1px solid #000000;"></CANVAS>
+</DIV>
+
+
+<script>
+Initialise();
+</script>
+</BODY>
+</HTML>
