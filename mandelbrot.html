@@ -60,6 +60,12 @@ function vec2(x, y)
  this.mY = y;
 }
 
+vec2.prototype.distanceTo = function(other) {
+    const dx = other.mX - this.mX;
+    const dy = other.mY - this.mY;
+    return Math.sqrt(dx * dx + dy * dy);
+};
+
 //////////////////////////VEC4/////////////////////////////////
 function vec4(x, y, z, w)
 {
@@ -311,14 +317,7 @@ function Initialise()
  gColourGradient.AddKeyframe(0.8, new colour(0,0,0));
  RenderAgain();
  guiSetInitialParams();
- document.getElementById("canvas1").addEventListener("mousedown", canvasMouseDown);
- document.body.addEventListener("mouseup", MouseUp);
- document.addEventListener("keydown", KeyDown);
- document.addEventListener("mouseleave", MouseLeave);
- document.addEventListener("mousemove", MouseMove);
- var canvas = document.getElementById('canvas1');
- canvas.addEventListener("mousewheel", MouseWheel);
- window.addEventListener("resize", ResizeWindow);
+ AddEventListeners();
  ResizeWindow();
  guiMenuVisibility(false, false, false);
  setTimeout(Tick, 17);
@@ -779,11 +778,78 @@ var gJuliaY=0;
 var gCanvasX=0;
 var gCanvasY=0;
 
+function AddEventListeners()
+{
+    document.getElementById("canvas1").addEventListener("mousedown", canvasMouseDown);
+    document.body.addEventListener("mouseup", MouseUp);
+    document.addEventListener("keydown", KeyDown);
+    document.addEventListener("mouseleave", MouseLeave);
+    document.addEventListener("mousemove", MouseMove);
+    var canvas = document.getElementById('canvas1');
+    canvas.addEventListener("mousewheel", MouseWheel);
+    window.addEventListener("resize", ResizeWindow);
+    document.addEventListener('touchstart', TouchStart, {passive: false});
+    document.addEventListener('touchmove', TouchMove, {passive: false});
+    document.addEventListener('touchend', TouchEnd);
+}
+
+function TouchStart(event)
+{
+  event.preventDefault(true);
+  if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
+		if (event.touches.length === 2) {
+			DeviceUp();
+			var v1 = new vec2(event.touches[0].pageX, event.touches[0].pageY);
+			var v2 = new vec2(event.touches[1].pageX, event.touches[1].pageY);
+			gInitialDistance = v1.distanceTo(v2);
+    }
+}
+
+function TouchMove(event)
+{
+  if (event.touches.length === 1)
+  {
+    gDragMultiplier = 3;
+    DeviceMove(event.touches[0].clientX, event.touches[0].clientY);
+  }
+  if (event.touches.length === 2) {
+    // Prevent default behavior (optional)
+    event.preventDefault();
+
+    var v1 = new vec2(event.touches[0].pageX, event.touches[0].pageY);
+    var v2 = new vec2(event.touches[1].pageX, event.touches[1].pageY);
+    var distance = v1.distanceTo(v2);
+    if (distance != gInitialDistance)
+    {
+      console.log(gInitialDistance/distance);
+      SetZoom(gInitialDistance/distance);
+      gInitialDistance = distance;
+    }
+  }
+}
+
+function TouchEnd(event)
+{
+  if (event.touches.length === 0) {
+			DeviceUp();
+		}
+		if (event.touches.length === 1) {
+			DeviceDown(event.touches[0].clientX, event.touches[0].clientY);
+		}
+}
+
 function canvasMouseDown(e)
 {
+  DeviceDown(e.clientX, e.clientY);
+}
+
+function DeviceDown(x, y)
+{
  gMouseDown = true;
- var worldX = e.pageX;
- var worldY = e.pageY;
+ var worldX = x;
+ var worldY = y;
  
  var canvasElement = document.getElementById('canvas1');
  var canvasX = worldX - canvasElement.offsetLeft;
@@ -807,26 +873,29 @@ function canvasMouseDown(e)
 
  gDragStartX = canvasX;
  gDragStartY = canvasY;
- console.log("Mouse Down : " + canvasX + ", " + canvasY);
+// console.log("Mouse Down : " + canvasX + ", " + canvasY);
 }
 
 function MouseUp(e)
 {
- gMouseDown = false;
- var worldX = e.pageX;
- var worldY = e.pageY;
- 
- var canvasElement = document.getElementById('canvas1');
- var canvasX = worldX - canvasElement.offsetLeft;
- var canvasY = worldY - canvasElement.offsetTop;
+ DeviceUp();
+}
 
- console.log("Mouse Up : " + canvasX + ", " + canvasY);
+function DeviceUp()
+{
+ gMouseDown = false;
+// console.log("Mouse Up");
 }
 
 function MouseMove(e)
 {
- var worldX = e.pageX;
- var worldY = e.pageY;
+  DeviceMove(e.pageX, e.pageY);
+}
+
+function DeviceMove(x, y)
+{
+ var worldX = x;
+ var worldY = y;
  
  var canvasElement = document.getElementById('canvas1');
  var canvasX = worldX - canvasElement.offsetLeft;
@@ -861,15 +930,13 @@ function MouseWheel(e)
  {// zoom out
   gPosX -= 0.47*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
   gPosY -= 0.47*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
-  SetZoom(gZoom / 1.3);
-  RenderAgain();
+  SetZoom(1 / 1.3);
  }
  else
  {// zoom in
-  SetZoom(gZoom * 1.3);
+  SetZoom(1.3);
   gPosX += (1.3*0.5)*(canvasX-(gWidth*0.5))/(gWidth*gZoom);
   gPosY += (1.3*0.5)*(canvasY-(gHeight*0.5))/(gWidth*gZoom);
-  RenderAgain();
  }
   
 }
@@ -880,13 +947,11 @@ function KeyDown(e)
  {
   if (e.keyCode == '38')
   {// up
-   SetZoom(gZoom * 1.1);
-   RenderAgain();
+   SetZoom(1.1);
   }
   if (e.keyCode == '40')
   {// down
-   SetZoom(gZoom / 1.1);
-   RenderAgain();
+   SetZoom(1 / 1.1);
   }
  }
  else
@@ -958,9 +1023,10 @@ function MouseLeave(e)
   MouseUp(e);
 }
 
-function SetZoom(zoom)
+function SetZoom(zoomMultiple)
 {
- gZoom = zoom;
+ gZoom /= zoomMultiple;
+ RenderAgain();
 }
 
 function ResizeWindow()
