@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prime Number Finder</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 100vw;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 24px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 2vw 2vw 2vw 2vw;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .greatest-prime-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .prime-value {
+            font-size: 2rem;
+            background: #222;
+            color: #fff;
+            padding: 16px 32px;
+            border-radius: 8px;
+            min-width: 120px;
+            text-align: center;
+        }
+        #charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2vw;
+            margin-top: 2vw;
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
+        }
+        .chart-cell {
+            background: #fafbfc;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            padding: 1vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 350px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        #empty-cell {
+            background: transparent;
+            box-shadow: none;
+        }
+        #primeChart, #gapHistogram, #avgGapChart {
+            width: 100% !important;
+            height: 40vw !important;
+            max-width: 100%;
+            max-height: 420px;
+        }
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:active {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prime Number Finder</h1>
+        <div class="controls">
+            <button id="start-btn">Calculate</button>
+            <button id="reset-btn" style="margin-left: 12px;">Reset</button>
+            <button id="step-btn" style="margin-left: 12px;">Step</button>
+        </div>
+        <div class="greatest-prime-box">
+            <div>
+                <div>Greatest Prime Found:</div>
+                <div style="display: flex; gap: 24px; align-items: center;">
+                    <div class="prime-value" id="greatest-prime">-</div>
+                    <div class="prime-count-label">Primes Found:</div>
+                    <div class="prime-value" id="prime-count">-</div>
+                </div>
+            </div>
+        </div>
+        <div id="charts-grid">
+            <div class="chart-cell" id="primeChart-cell">
+                <h3 style="text-align:center;">Primes Found vs x</h3>
+                <canvas id="primeChart"></canvas>
+            </div>
+            <div class="chart-cell" id="histogram-cell">
+                <h3 style="text-align:center;">Prime Gap Histogram</h3>
+                <canvas id="gapHistogram"></canvas>
+            </div>
+            <div class="chart-cell" id="avg-gap-cell">
+                <h3 style="text-align:center;">Average Prime Gap</h3>
+                <canvas id="avgGapChart"></canvas>
+            </div>
+            <div class="chart-cell" id="empty-cell"></div>
+        </div>
+    </div>
+    <script id="prime-worker" type="javascript/worker">
+        let count = 0;
+        let maxPrime = 2;
+        let running = false;
+        let x = 3;
+        function isPrime(n) {
+            if (n < 2) return false;
+            if (n === 2) return true;
+            if (n % 2 === 0) return false;
+            let sqrt = Math.sqrt(n);
+            for (let i = 3; i <= sqrt; i += 2) {
+                if (n % i === 0) return false;
+            }
+            return true;
+        }
+        self.onmessage = function(e) {
+            if (e.data.type === 'start') {
+                if (e.data.state) {
+                    count = e.data.state.count;
+                    maxPrime = e.data.state.maxPrime;
+                    x = e.data.state.x;
+                } else {
+                    count = 1;
+                    maxPrime = 2;
+                    x = 3;
+                }
+                running = true;
+                search();
+            } else if (e.data.type === 'pause') {
+                running = false;
+            } else if (e.data.type === 'step') {
+                if (e.data.state) {
+                    count = e.data.state.count;
+                    maxPrime = e.data.state.maxPrime;
+                    x = e.data.state.x;
+                }
+                // Find just the next prime
+                while (true) {
+                    if (isPrime(x)) {
+                        count++;
+                        maxPrime = x;
+                        x++;
+                        break;
+                    }
+                    x++;
+                }
+                self.postMessage({
+                    type: 'update',
+                    maxPrime,
+                    count,
+                    x,
+                    newPrimes: [maxPrime]
+                });
+            }
+        };
+        function search() {
+            if (!running) return;
+            let batch = 10000;
+            let newPrimes = [];
+            let t0 = performance.now();
+            let tIsPrime = 0;
+            let tPush = 0;
+            let tLoopStart, tLoopEnd;
+            tLoopStart = performance.now();
+            for (let i = 0; i < batch; i++) {
+                let t1 = performance.now();
+                if (isPrime(x)) {
+                    let t2 = performance.now();
+                    count++;
+                    maxPrime = x;
+                    tIsPrime += t2 - t1;
+                    let t3 = performance.now();
+                    newPrimes.push(x);
+                    tPush += performance.now() - t3;
+                }
+                x++;
+            }
+            tLoopEnd = performance.now();
+            let tPostStart = performance.now();
+            self.postMessage({
+                type: 'update',
+                maxPrime,
+                count,
+                x,
+                newPrimes
+                ,timings: {
+                    total: performance.now() - t0,
+                    loop: tLoopEnd - tLoopStart,
+                    isPrime: tIsPrime,
+                    push: tPush,
+                    post: performance.now() - tPostStart
+                }
+            });
+            setTimeout(search, 1);
+        }
+    </script>
+    <script>
+        function createWorkerFromScript(scriptId) {
+            const script = document.getElementById(scriptId);
+            const blob = new Blob([script.textContent], { type: 'application/javascript' });
+            return new Worker(URL.createObjectURL(blob));
+        }
+
+        let worker = null;
+        let chart = null;
+        let chartData = {
+            datasets: [
+                {
+                    label: 'Primes Found',
+                    data: [],
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0,123,255,0.1)',
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0,
+                },
+                {
+                    label: 'ln(x)',
+                    data: [],
+                    borderColor: '#ff9900',
+                    backgroundColor: 'rgba(255,153,0,0.1)',
+                    fill: false,
+                    borderDash: [5,5],
+                    tension: 0.1,
+                    pointRadius: 0,
+                }
+            ]
+        };
+
+        let state = null; // To store current state for pause/resume
+        let running = false;
+        let histogramChart = null;
+        let avgGapChart = null;
+        let avgGapData = [];
+        // Refactored metrics
+        let lastPrime = 2;
+        let gapFreq = {};
+        let gapSum = 0;
+        let gapCount = 0;
+        // Throttling variables
+        let pendingChartData = [];
+        let pendingLnData = [];
+        let pendingNewPrimes = [];
+        let pendingAvgGapPoints = [];
+        let chartUpdateScheduled = false;
+        let lastChartUpdateTime = 0;
+        const CHART_UPDATE_INTERVAL = 1000; // ms
+
+        // Downsampling helper
+        function downsampleData(data, maxPoints = 500) {
+            if (data.length <= maxPoints) return data;
+            const step = Math.ceil(data.length / maxPoints);
+            const result = [];
+            for (let i = 0; i < data.length; i += step) {
+                result.push(data[i]);
+            }
+            // Always include the last point
+            if (result[result.length - 1] !== data[data.length - 1]) {
+                result.push(data[data.length - 1]);
+            }
+            return result;
+        }
+
+        function setupChart() {
+            const ctx = document.getElementById('primeChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Current Number (x)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Count / ln(x)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+            // Setup histogram chart
+            const histCtx = document.getElementById('gapHistogram').getContext('2d');
+            histogramChart = new Chart(histCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Frequency',
+                        data: [],
+                        backgroundColor: 'rgba(0,123,255,0.5)',
+                        borderColor: '#007bff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Prime Gap'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Frequency'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+            // Setup average gap chart
+            const avgGapCtx = document.getElementById('avgGapChart').getContext('2d');
+            avgGapChart = new Chart(avgGapCtx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Average Prime Gap',
+                        data: [],
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40,167,69,0.1)',
+                        fill: false,
+                        tension: 0.1,
+                        pointRadius: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Current Number (x)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Average Gap'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+
+        function updateHistogram() {
+            const sortedGaps = Object.keys(gapFreq).map(Number).sort((a, b) => a - b);
+            const counts = sortedGaps.map(gap => gapFreq[gap]);
+            // Downsample histogram if needed
+            const dsLabels = downsampleData(sortedGaps, 500);
+            const dsCounts = dsLabels.map(gap => gapFreq[gap]);
+            histogramChart.data.labels = dsLabels;
+            histogramChart.data.datasets[0].data = dsCounts;
+            const tHistUpdateStart = performance.now();
+            histogramChart.update('none');
+            const tHistUpdateEnd = performance.now();
+            console.log('histogramChart.update time:', (tHistUpdateEnd - tHistUpdateStart).toFixed(2), 'ms');
+        }
+
+        function updateAvgGapChart(x) {
+            if (gapCount > 0) {
+                const avg = gapSum / gapCount;
+                avgGapData.push({ x: x, y: avg });
+                avgGapChart.data.datasets[0].data = avgGapData;
+                avgGapChart.update('none');
+            }
+        }
+
+        function scheduleChartUpdate(x, count, newPrimes) {
+            // Accumulate data
+            if (typeof x === 'number' && typeof count === 'number') {
+                pendingChartData.push({x, y: count});
+                pendingLnData.push({x, y: x/Math.log(x)});
+            }
+            if (Array.isArray(newPrimes) && newPrimes.length > 0) {
+                pendingNewPrimes.push(...newPrimes);
+            }
+            // Only schedule if not already scheduled
+            if (!chartUpdateScheduled) {
+                chartUpdateScheduled = true;
+                setTimeout(applyPendingChartUpdates, CHART_UPDATE_INTERVAL);
+            }
+        }
+
+        function applyPendingChartUpdates() {
+            // Update main chart
+            if (pendingChartData.length > 0) {
+                chartData.datasets[0].data.push(...pendingChartData);
+                pendingChartData = [];
+            }
+            if (pendingLnData.length > 0) {
+                chartData.datasets[1].data.push(...pendingLnData);
+                pendingLnData = [];
+            }
+            // Downsample before rendering
+            chart.data.datasets[0].data = downsampleData(chartData.datasets[0].data);
+            chart.data.datasets[1].data = downsampleData(chartData.datasets[1].data);
+            const tChartStart = performance.now();
+            chart.update('none');
+            const tChartEnd = performance.now();
+            console.log('Chart update time:', (tChartEnd - tChartStart).toFixed(2), 'ms');
+            // Update histogram and avg gap chart
+            let newAvgGap = null;
+            for (const prime of pendingNewPrimes) {
+                if (lastPrime && prime > lastPrime) {
+                    const gap = prime - lastPrime;
+                    gapFreq[gap] = (gapFreq[gap] || 0) + 1;
+                    gapSum += gap;
+                    gapCount++;
+                    lastPrime = prime;
+                    // For avg gap chart
+                    if (gapCount > 0) {
+                        const avg = gapSum / gapCount;
+                        pendingAvgGapPoints.push({ x: prime, y: avg });
+                        newAvgGap = avg;
+                    }
+                }
+            }
+            if (pendingNewPrimes.length > 0) {
+                const tHistStart = performance.now();
+                updateHistogram();
+                const tHistEnd = performance.now();
+                console.log('Histogram update time:', (tHistEnd - tHistStart).toFixed(2), 'ms');
+            }
+            pendingNewPrimes = [];
+            if (pendingAvgGapPoints.length > 0) {
+                avgGapData.push(...pendingAvgGapPoints);
+                avgGapChart.data.datasets[0].data = downsampleData(avgGapData);
+                const tAvgStart = performance.now();
+                avgGapChart.update('none');
+                const tAvgEnd = performance.now();
+                console.log('Avg gap chart update time:', (tAvgEnd - tAvgStart).toFixed(2), 'ms');
+                pendingAvgGapPoints = [];
+            }
+            chartUpdateScheduled = false;
+        }
+
+        function updateChart(x, count, newPrimes) {
+            // Instead of updating immediately, schedule/throttle updates
+            scheduleChartUpdate(x, count, newPrimes);
+            console.log('Chart update scheduled: x =', x, 'count =', count);
+        }
+
+        function resetChartAndState() {
+            chartData.datasets[0].data = [];
+            chartData.datasets[1].data = [];
+            chart.update();
+            histogramChart.data.labels = [];
+            histogramChart.data.datasets[0].data = [];
+            histogramChart.update();
+            avgGapData = [];
+            avgGapChart.data.datasets[0].data = [];
+            avgGapChart.update();
+            document.getElementById('greatest-prime').textContent = '-';
+            document.getElementById('prime-count').textContent = '-';
+            state = null;
+            lastPrime = 2;
+            gapFreq = {};
+            gapSum = 0;
+            gapCount = 0;
+            // Reset throttling buffers
+            pendingChartData = [];
+            pendingLnData = [];
+            pendingNewPrimes = [];
+            pendingAvgGapPoints = [];
+            chartUpdateScheduled = false;
+        }
+
+        document.getElementById('start-btn').onclick = function() {
+            const btn = document.getElementById('start-btn');
+            if (!running) {
+                // Start or resume
+                if (!state) {
+                    // New search
+                    resetChartAndState();
+                    // Initial state: count=1, maxPrime=2, x=3
+                    state = { count: 1, maxPrime: 2, x: 3 };
+                }
+                worker = createWorkerFromScript('prime-worker');
+                worker.onmessage = function(e) {
+                    if (e.data.timings) {
+                        console.log('Worker timings:', e.data.timings);
+                    }
+                    if (e.data.type === 'update') {
+                        document.getElementById('greatest-prime').textContent = e.data.maxPrime;
+                        document.getElementById('prime-count').textContent = e.data.count;
+                        // Only update gap if new primes were found
+                        if (e.data.newPrimes && e.data.newPrimes.length > 0) {
+                            updateChart(e.data.x, e.data.count, e.data.newPrimes);
+                        } else {
+                            updateChart(e.data.x, e.data.count);
+                        }
+                        // Save state for pause/resume
+                        state = {
+                            count: e.data.count,
+                            maxPrime: e.data.maxPrime,
+                            x: e.data.x
+                        };
+                    }
+                };
+                worker.postMessage({
+                    type: 'start',
+                    state: state && state.x ? state : null
+                });
+                running = true;
+                btn.textContent = 'Pause';
+            } else {
+                // Pause
+                if (worker) {
+                    worker.postMessage({ type: 'pause' });
+                    worker.terminate();
+                    worker = null;
+                }
+                running = false;
+                btn.textContent = 'Calculate';
+            }
+        };
+
+        document.getElementById('reset-btn').onclick = function() {
+            if (worker) {
+                worker.terminate();
+                worker = null;
+            }
+            resetChartAndState();
+            running = false;
+            document.getElementById('start-btn').textContent = 'Calculate';
+            document.getElementById('prime-count').textContent = '-';
+        };
+
+        document.getElementById('step-btn').onclick = function() {
+            if (running) return; // Do nothing if running
+            // Create worker if not exists
+            if (!state) {
+                resetChartAndState();
+                state = { count: 1, maxPrime: 2, x: 3 };
+            }
+            if (worker) {
+                worker.terminate();
+                worker = null;
+            }
+            worker = createWorkerFromScript('prime-worker');
+            worker.onmessage = function(e) {
+                if (e.data.timings) {
+                    console.log('Worker timings:', e.data.timings);
+                }
+                if (e.data.type === 'update') {
+                    document.getElementById('greatest-prime').textContent = e.data.maxPrime;
+                    document.getElementById('prime-count').textContent = e.data.count;
+                    if (e.data.newPrimes && e.data.newPrimes.length > 0) {
+                        updateChart(e.data.x, e.data.count, e.data.newPrimes);
+                    } else {
+                        updateChart(e.data.x, e.data.count);
+                    }
+                    // Save state for next step
+                    state = {
+                        count: e.data.count,
+                        maxPrime: e.data.maxPrime,
+                        x: e.data.x
+                    };
+                    worker.terminate();
+                    worker = null;
+                }
+            };
+            worker.postMessage({
+                type: 'step',
+                state: state && state.x ? state : null
+            });
+        };
+
+        window.onload = setupChart;
+    </script>
+</body>
+</html>

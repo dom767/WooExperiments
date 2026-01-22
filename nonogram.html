@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nonogram Creator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    #nonogram-container {
+      display: flex;
+      flex-direction: row;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    /* Clues area on the left (row clues) and top (column clues) */
+    #clues-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .clues-row,
+    .clues-col {
+      font-weight: bold;
+      font-size: 0.9rem;
+      text-align: right;
+    }
+
+    #grid-container {
+      display: inline-block;
+      border: 1px solid #000;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    td {
+      width: 30px;
+      height: 30px;
+      border: 1px solid #aaa;
+      cursor: pointer;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    td.filled {
+      background-color: #333;
+    }
+
+    td.blank {
+      background-color: #fff;
+    }
+
+    td:hover {
+      outline: 2px solid #6c6c6c;
+    }
+
+    .column-clues {
+      display: flex;
+      gap: 0.25rem;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+<h1>Nonogram Creator</h1>
+<p>Click on cells to toggle them <strong>(filled / blank)</strong>. Clues are calculated automatically.</p>
+
+<div id="nonogram-container">
+  <!-- Clues on the left side (row clues) -->
+  <div id="clues-container">
+    <!-- Placeholder for row clues -->
+    <div id="row-clues"></div>
+  </div>
+
+  <div>
+    <!-- Clues on top for columns -->
+    <div id="column-clues"></div>
+
+    <!-- The puzzle grid -->
+    <div id="grid-container"></div>
+  </div>
+</div>
+
+<script>
+/********************************************************
+ * 1. Configuration
+ ********************************************************/
+const ROWS = 10;
+const COLS = 10;
+
+// puzzleGrid[row][col] = true if filled; false if blank
+let puzzleGrid = [];
+for (let r = 0; r < ROWS; r++) {
+  puzzleGrid[r] = [];
+  for (let c = 0; c < COLS; c++) {
+    puzzleGrid[r][c] = false; 
+  }
+}
+
+/********************************************************
+ * 2. Initial Rendering of the Grid
+ ********************************************************/
+const gridContainer = document.getElementById("grid-container");
+const columnCluesDiv = document.getElementById("column-clues");
+const rowCluesDiv = document.getElementById("row-clues");
+
+// Create an HTML table to represent the grid
+function createGrid() {
+  const table = document.createElement("table");
+
+  for (let r = 0; r < ROWS; r++) {
+    const row = document.createElement("tr");
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement("td");
+      cell.id = `cell-${r}-${c}`;
+
+      // Set initial class
+      cell.className = puzzleGrid[r][c] ? "filled" : "blank";
+
+      // Toggle fill state on click
+      cell.addEventListener("click", () => toggleCell(r, c));
+
+      row.appendChild(cell);
+    }
+    table.appendChild(row);
+  }
+  gridContainer.appendChild(table);
+}
+
+/********************************************************
+ * 3. Toggling Cells & Recomputing Clues
+ ********************************************************/
+function toggleCell(row, col) {
+  puzzleGrid[row][col] = !puzzleGrid[row][col];
+  const cell = document.getElementById(`cell-${row}-${col}`);
+  cell.className = puzzleGrid[row][col] ? "filled" : "blank";
+
+  // Once toggled, recalculate and display the row & column clues
+  updateClues();
+}
+
+/********************************************************
+ * 4. Computing Nonogram Clues from the Grid
+ *    (e.g., row [true, true, false, true] -> 2 1 )
+ ********************************************************/
+function computeCluesForLine(lineArray) {
+  // lineArray is an array of booleans: true = filled, false = blank
+  let clues = [];
+  let count = 0;
+  for (let i = 0; i < lineArray.length; i++) {
+    if (lineArray[i]) {
+      count++;
+    } else if (count > 0) {
+      clues.push(count);
+      count = 0;
+    }
+  }
+  if (count > 0) {
+    clues.push(count);
+  }
+  // If no cells are filled, we show 0
+  if (clues.length === 0) clues = [0];
+  return clues;
+}
+
+function updateClues() {
+  const rowClues = [];
+  const colClues = [];
+
+  // Compute row clues
+  for (let r = 0; r < ROWS; r++) {
+    rowClues[r] = computeCluesForLine(puzzleGrid[r]);
+  }
+
+  // Compute column clues
+  for (let c = 0; c < COLS; c++) {
+    let colArray = [];
+    for (let r = 0; r < ROWS; r++) {
+      colArray.push(puzzleGrid[r][c]);
+    }
+    colClues[c] = computeCluesForLine(colArray);
+  }
+
+  renderRowClues(rowClues);
+  renderColumnClues(colClues);
+}
+
+function renderRowClues(rowClues) {
+  // Clear previous row clues
+  rowCluesDiv.innerHTML = "";
+  rowClues.forEach((clueArray, rowIndex) => {
+    const div = document.createElement("div");
+    div.className = "clues-row";
+    div.textContent = clueArray.join(" ");
+    rowCluesDiv.appendChild(div);
+  });
+}
+
+function renderColumnClues(colClues) {
+  // Clear previous column clues
+  columnCluesDiv.innerHTML = "";
+  
+  // Each column clue is displayed in a vertical stack
+  const clueTable = document.createElement("table");
+  const clueRow = document.createElement("tr");
+
+  colClues.forEach((clueArray, colIndex) => {
+    const colTd = document.createElement("td");
+    colTd.style.verticalAlign = "bottom";
+
+    // Each column's clues stacked in a small column
+    clueArray.forEach(number => {
+      const span = document.createElement("div");
+      span.style.textAlign = "center";
+      span.textContent = number;
+      colTd.appendChild(span);
+    });
+
+    clueRow.appendChild(colTd);
+  });
+  clueTable.appendChild(clueRow);
+  columnCluesDiv.appendChild(clueTable);
+}
+
+/********************************************************
+ * 5. Initialize Everything
+ ********************************************************/
+createGrid();
+updateClues(); // Initial calculation
+</script>
+</body>
+</html>

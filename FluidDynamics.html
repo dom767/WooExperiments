@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Fluid Dynamics Grid</title>
+	<link rel="stylesheet" href="FluidDynamics.css">
+</head>
+<body>
+    <div id="controls">
+        <button id="randomizeBtn">Randomize Velocities</button>
+        <button id="divergenceBtn">Divergence: OFF</button>
+        <button id="arrowsBtn">Arrows: ON</button>
+        <button id="relaxStepBtn">Relax Single Step</button>
+        <button id="advectionBtn">Advection Step</button>
+        <button id="gridLinesBtn">Grid Lines: ON</button>
+        <button id="flowBtn">Flow: ON</button>
+        <button id="windtunnelBtn">Windtunnel: OFF</button>
+        <button id="gpuBtn">GPU: ON</button>
+        <button id="enableAdvectionBtn">Enable Advection: ON</button>
+        <button id="velocityCsvBtn">Download Velocity CSV</button>
+        <div id="fpsCounter">FPS: --</div>
+        <div class="control-group compact">
+            <label for="overrelaxInput">Overrelaxation:</label>
+            <input type="range" id="overrelaxInput" min="0.1" max="2.0" step="0.05" value="1.0">
+            <span id="overrelaxVal" class="value-badge">1.0</span>
+        </div>
+        <div class="control-group compact">
+            <label for="relaxIterInput">Relax Iterations:</label>
+            <input type="range" id="relaxIterInput" min="1" max="100" step="1" value="30">
+            <span id="relaxIterVal" class="value-badge">30</span>
+        </div>
+        <div class="control-group compact">
+            <label for="flowStrengthInput">Flow Strength:</label>
+            <input type="range" id="flowStrengthInput" min="0" max="20" step="0.1" value="2.0">
+            <span id="flowStrengthVal" class="value-badge">2.0</span>
+        </div>
+        <div class="control-group compact">
+            <label for="circleSizeInput">Circle Size:</label>
+            <input type="range" id="circleSizeInput" min="0.02" max="0.3" step="0.01" value="0.10">
+            <span id="circleSizeVal" class="value-badge">0.10</span>
+        </div>
+        <div class="control-group compact">
+            <label for="timeStepInput">Time Step:</label>
+            <input type="range" id="timeStepInput" min="0.01" max="2.0" step="0.01" value="1.34">
+            <span id="timeStepVal" class="value-badge">1.34</span>
+        </div>
+    </div>
+    
+    <canvas id="gridCanvas"></canvas>
+    
+	<script src="FluidDynamics.js"></script>
+</body>
+</html>
+

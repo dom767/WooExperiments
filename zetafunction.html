@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Riemann–Siegel Z-function</title>
+</head>
+<body>
+  <h2>Riemann Zeta on the Critical Line</h2>
+  <div id="output"></div>
+
+  <script>
+    function theta(t) {
+      return (t / 2) * Math.log(t / (2 * Math.PI)) - (t / 2) - Math.PI / 8;
+    }
+
+    function Z(t) {
+      const N = Math.floor(Math.sqrt(t / (2 * Math.PI)));
+      const theta_t = theta(t);
+      let sum = 0;
+      for (let n = 1; n <= N; n++) {
+        sum += Math.cos(theta_t - t * Math.log(n)) / Math.sqrt(n);
+      }
+      return 2 * sum;
+    }
+
+    // Test near first zero
+    const t = 14.1347;  // Known first non-trivial zero of zeta
+    const zVal = Z(t);
+
+    document.getElementById("output").textContent =
+      `Z(${t}) ≈ ${zVal.toFixed(12)} (should be near zero)`;
+  </script>
+</body>
+</html>

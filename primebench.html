@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Prime Benchmark</title>
+</head>
+<body>
+    <h1>Prime Number Benchmark</h1>
+    <div id="result">Benchmarking...</div>
+    <script>
+        function isPrime(n) {
+            if (n < 2) return false;
+            if (n === 2) return true;
+            if (n % 2 === 0) return false;
+            for (let i = 3; i * i <= n; i += 2) {
+                if (n % i === 0) return false;
+            }
+            return true;
+        }
+
+        function findFirstNPrimes(count) {
+            const primes = [];
+            let num = 2;
+            while (primes.length < count) {
+                if (isPrime(num)) {
+                    primes.push(num);
+                }
+                num++;
+            }
+            return primes;
+        }
+
+        setTimeout(() => {
+            const start = performance.now();
+            const primes = findFirstNPrimes(100000);
+            const end = performance.now();
+            document.getElementById('result').textContent =
+                `Time taken to find 100,000 primes: ${(end - start).toFixed(2)} ms\n` +
+                `Largest prime found: ${primes[primes.length - 1]}`;
+        }, 100);
+    </script>
+</body>
+</html>

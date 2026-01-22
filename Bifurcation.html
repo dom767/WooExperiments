@@ -704,6 +704,18 @@ function guiMenuFunction()
  guiMenuVisibility(false, false, false, document.getElementById("FunctionView").hidden);
 }
 
+function guiReset()
+{
+	gPosX = 3.2;
+	gPosY = 0.5;
+	gZoomX = 1;
+	gZoomY = 1;
+	gDirty = true;
+	ClearNavigatorBuffer();
+	ClearBuffer();
+	ClearIterationsBuffer();
+}
+
 function setGuiBool(id, value)
 {
  var guiItem = document.getElementById(id);
@@ -824,6 +836,7 @@ Zoom : 3.1\
 \
 <DIV id="Navigator" class="MBPanel">\
 <CANVAS style="canvas1" id="navigatorCanvas" width=500 height=300 style="border:1px solid #000000;"></CANVAS>\
+<BR><BUTTON id="resetNavigator" onclick="guiReset()">Reset</BUTTON>\
 </DIV>\
 \
 <DIV id="Iterations" class="MBPanel">\

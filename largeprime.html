@@ -1,0 +1,63 @@
+<script src="fixedprecision.js"></script>
+
+<script>
+test();
+
+var primes = new Array();
+var numPrimes = 0;
+
+function isPrime(i)
+{
+  if (i <= 1) return false; // 0 and 1 are not prime numbers
+
+  for (var j = 2; j <= Math.sqrt(i); j++) {
+    if (i % j === 0) {
+      return false; // divisible by a number other than 1 and itself
+    }
+  }
+  return true; // no divisors found, so it's prime
+}
+
+function GetPrimes(total)
+{
+primes = new Array();
+for (i=2; i<total; i++)
+{
+if (isPrime(i)) primes[numPrimes++] = i;
+}
+    // Convert array to string
+    var primeText = "";
+	
+ var EuclidProduct = new Array(11);load(EuclidProduct, 1);
+
+	for (p=0; p<numPrimes; p++)
+	{
+ var arb2 = new Array(11);load(arb2, primes[p]);
+ var res = new Array(11);
+ mul(res, EuclidProduct, arb2);
+ assign(EuclidProduct, res);
+ var res2 = new Array(11);
+ assign(res2, res);
+ var one = new Array(11);
+ load(one, 1);
+ add(res2, res, one);
+ console.log(arb2 + " * " + EuclidProduct + " = " + primes[p]*EuclidProduct);
+	 primeText += "primes[p] : "+primes[p]+", running Prime : "+toString(res2)+"\n\r";
+	}
+
+    // Output to the page
+    document.getElementById('primeContainer').innerText = primeText;
+	
+	
+}
+
+</script>
+
+<body>
+  <h2>List of Prime Numbers</h2>
+  <div id="primeContainer"></div>
+  
+  <script>
+  GetPrimes(200);
+  </script>
+</body>

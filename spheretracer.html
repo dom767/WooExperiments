@@ -16,6 +16,15 @@
     
     <SCRIPT>
     
+//////////////////////////VEC4/////////////////////////////////
+function vec4(x, y, z, w)
+{
+ this.mX = x;
+ this.mY = y;
+ this.mZ = z;
+ this.mW = w;
+}
+
 //////////////////////////VEC3/////////////////////////////////
 function vec3(x, y, z)
 {
@@ -77,6 +86,12 @@ vec3.prototype.Cross = function(v) {
 vec3.prototype.dot = function(v) {
   return this.mX * v.mX + this.mY * v.mY + this.mZ * v.mZ;
 };
+
+vec3.prototype.SetSub = function(v1, v2) {
+      this.mX = v1.mX - v2.mX;
+      this.mY = v1.mY - v2.mY;
+      this.mZ = v1.mZ - v2.mZ;
+    };
 
 //////////////////////////MAT4/////////////////////////////////
 function mat4(m00,m01,m02,m03,m10,m11,m12,m13,m20,m21,m22,m23,m30,m31,m32,m33)
@@ -153,8 +168,43 @@ mat4.prototype.mulvec4 = function(v) {
   return new vec4(x, y, z, w);
 }
 
-var gWidth;
-var gHeight;
+mat4.prototype.MakeRotationX = function(angle) {
+  this.MakeIdentity();
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  this.m[2][2] = cos;
+  this.m[2][1] = sin;
+  this.m[1][2] = -sin;
+  this.m[1][1] = cos;
+}
+
+mat4.prototype.MakeRotationY = function(angle) {
+  this.MakeIdentity();
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  this.m[0][0] = cos;
+  this.m[0][2] = sin;
+  this.m[2][0] = -sin;
+  this.m[2][2] = cos;
+}
+
+mat4.prototype.MakeRotationZ = function(angle) {
+  this.MakeIdentity();
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  this.m[1][1] = cos;
+  this.m[1][0] = sin;
+  this.m[0][1] = -sin;
+  this.m[0][0] = cos;
+}
+
+mat4.prototype.MakeTranslation = function(vec) {
+  this.MakeIdentity();
+  this.m[3][0] = vec.mX;
+  this.m[3][1] = vec.mY;
+  this.m[3][2] = vec.mZ;
+}
+
 var gRenderWidth;
 var gRenderHeight;
 var gRenderCanvas;
@@ -220,12 +270,22 @@ function SDSphere(pos, centre, radius)
     return centre.sub(pos).GetLength() - radius;
 }
 
+function smin(a, b, k)
+{
+    k *= 1.0;
+    var r = Math.exp(-a/k) + Math.exp(-b/k);
+    return -k*Math.log(r);
+}
+
 function GetDistance(pos)
 {
   var toCircle = SDCircle(pos);
   var toSphere = SDSphere(pos, new vec3(0,10,0), 10);
-  var toBox = SDBox(pos, new vec3(0,-6,0), new vec3(7,3,7));
-  return min(toCircle, min(toBox, toSphere));
+  var toSphere2 = SDSphere(pos, new vec3(14*Math.cos(4*Math.PI * gDelta),14,14*Math.sin(4*Math.PI * gDelta)), 4);
+  var toSphere3 = SDSphere(pos, new vec3(14*Math.cos(0.5 + 2*Math.PI * gDelta),6,14*Math.sin(0.5 + 2*Math.PI * gDelta)), 4);
+//  var toBox = SDBox(pos, new vec3(0,-6,0), new vec3(7,3,7));
+
+  return min(toCircle, smin(smin(toSphere2,toSphere3,1), toSphere, 1));
 }
 
 function GetLightDistance(pos)
@@ -239,11 +299,13 @@ var gHitObject = -1;
 
 function Trace(position, direction, lighting, depth)
 {
-    if (depth==0) return false;
-    var distance = 0;
- for (step=0; step<100; step++)
- {
-  gHitObject = 0;
+  if (depth==0) return false;
+ 
+  var distance = 0;
+ 
+  for (step=0; step<100; step++)
+  {
+    gHitObject = 0;
 
     distance = GetDistance(position);
     var distanceLighting;
@@ -261,75 +323,76 @@ function Trace(position, direction, lighting, depth)
       distance = min(distance, distanceLighting);
     }
 
-
     if (gHitObject>0)
     {
       gHitPosition = position;
 
-        if (lighting)
+      if (lighting)
+      {
+        if (gHitObject==1)
         {
-          if (gHitObject==1)
+          var normal = new vec3();
+          var delta = 0.005;
+          var dx = new vec3(delta, 0, 0);
+          var dy = new vec3(0, delta, 0);
+          var dz = new vec3(0, 0, delta);
+
+          var normalX = GetDistance(position.add(dx)) - GetDistance(position.sub(dx));
+          var normalY = GetDistance(position.add(dy)) - GetDistance(position.sub(dy));
+          var normalZ = GetDistance(position.add(dz)) - GetDistance(position.sub(dz));
+
+          var normal = new vec3(normalX, normalY, normalZ);
+          normal = normal.Normalise();
+          
+          var lightDirection = gLightPosition.sub(position).Normalise();
+          var diffuse = normal.dot(lightDirection);
+          if (diffuse<0) diffuse = 0;
+
+          position = position.add(normal.mul(delta));
+
+          shadow = !Trace(position, lightDirection, false, 2);
+          if (!shadow) diffuse = 0;
+
+          var reflectionVec = direction.add(normal.mul(2*normal.dot(direction.neg())));
+          reflection = Trace(position, reflectionVec, true, depth-1);
+          if (!reflection)
           {
-            var normal = new vec3();
-            var delta = 0.005;
-            var dx = new vec3(delta, 0, 0);
-            var dy = new vec3(0, delta, 0);
-            var dz = new vec3(0, 0, delta);
-
-            var normalX = GetDistance(position.add(dx)) - GetDistance(position.sub(dx));
-            var normalY = GetDistance(position.add(dy)) - GetDistance(position.sub(dy));
-            var normalZ = GetDistance(position.add(dz)) - GetDistance(position.sub(dz));
-
-            var normal = new vec3(normalX, normalY, normalZ);
-            normal = normal.Normalise();
-            
-            var lightDirection = gLightPosition.sub(position).Normalise();
-            var diffuse = normal.dot(lightDirection);
-            if (diffuse<0) diffuse = 0;
-
-            position = position.add(normal.mul(delta));
-
-            shadow = !Trace(position, lightDirection, false, 2);
-            if (!shadow) diffuse = 0;
-
-            var reflectionVec = direction.add(normal.mul(2*normal.dot(direction.neg())));
-            reflection = Trace(position, reflectionVec, true, depth-1);
-            if (!reflection)
-            {
-                reflectionCol = BackgroundColour(normal);
-            } 
-            else
-            {
-                reflectionCol = gHitColour;
-            }
-
-            gHitColour = new vec3(diffuse, diffuse, diffuse);
-            gHitColour = gHitColour.add(reflectionCol);
-            gHitColour = gHitColour.mul(0.5);
-
-            var hitdelta = gHitPosition.sub(gPosition);
-            var fogDistance = hitdelta.GetLength();
-            var fogDensity = 1-Math.exp(-0.01*fogDistance);
-            var fogColour = new vec3(0,0,0);
-            for (f=3; f>=0; f--)
-            {
-                fogTestPosition = gPosition.add(hitdelta.mul((f+Math.random())/4));
-                lightDirection = gLightPosition.sub(position).Normalise();
-                if (!Trace(fogTestPosition, lightDirection, false, 2))
-                 fogColour = fogColour.add(new vec3(0.25,0.2,0.15));
-            }   
-            gHitColour = fogColour.mul(fogDensity).add(gHitColour.mul(1-fogDensity));
-          }
+              reflectionCol = BackgroundColour(normal);
+          } 
           else
           {
-            gHitColour = new vec3(1.0,1.0,1.0);
+              reflectionCol = gHitColour;
           }
-          return true;
+
+          gHitColour = new vec3(diffuse, diffuse, diffuse);
+          gHitColour = gHitColour.add(reflectionCol);
+          gHitColour = gHitColour.mul(0.5);
+
+          var hitdelta = gHitPosition.sub(gPosition);
+          var fogDistance = hitdelta.GetLength();
+          var fogDensity = 1-Math.exp(-0.01*fogDistance);
+          var fogColour = new vec3(0,0,0);
+          for (f=3; f>=0; f--)
+          {
+            fogTestPosition = gPosition.add(hitdelta.mul((f+Math.random())/4));
+            lightDirection = gLightPosition.sub(position).Normalise();
+
+            //TODO colour should depend on location of light source in some way
+            if (!Trace(fogTestPosition, lightDirection, false, 2))
+              fogColour = fogColour.add(new vec3(0.25,0.2,0.15));
+          }
+          gHitColour = fogColour.mul(fogDensity).add(gHitColour.mul(1-fogDensity));
         }
         else
         {
-          return true;
+          gHitColour = new vec3(1.0,1.0,1.0);
         }
+        return true;
+      }
+      else
+      {
+        return true;
+      }
     }
 
     position = position.add(direction.mul(distance));
@@ -530,17 +593,110 @@ function Render()
     height = gRenderCanvas.height;
     context.drawImage(gChannelVideo, 0, 0, width, height, 0, 0, gCanvas.width, gCanvas.height);
 
-    gInterlace++;
-    if (gInterlace>1) gInterlace=0;
+    // draw a white triangle in the middle of the canvas
+    drawMenu();
 }
 
-var gInterlace = 0;
+function drawMenu()
+{
+  // get canvas2 rendercontext
+  var cnv = document.getElementById("canvas2");
+  var ctx = cnv.getContext("2d");
+  var menuwidth = cnv.width;
+  var menuheight = cnv.height;
+  
+  // clear the canvas
+  ctx.clearRect(0, 0, menuwidth, menuheight);
+
+  // create an array of vertices for each point on an icosahedron using vec3 class
+  const vertices = [
+    new vec3(0, 1, 0),
+    new vec3(0.894, 0.447, 0),
+    new vec3(0.276, 0.447, 0.851),
+    new vec3(-0.724, 0.447, 0.526),
+    new vec3(-0.724, 0.447, -0.526),
+    new vec3(0.276, 0.447, -0.851),
+    new vec3(0.724, -0.447, 0.526),
+    new vec3(-0.276, -0.447, 0.851),
+    new vec3(-0.894, -0.447, 0),
+    new vec3(-0.276, -0.447, -0.851),
+    new vec3(0.724, -0.447, -0.526),
+    new vec3(0, -1, 0)
+  ];
+
+  // create a rotation array around the Y axis
+  var matRotY = new mat4();
+  matRotY.MakeRotationY(gDelta * 2 * Math.PI);
+  var matRotX = new mat4();
+  matRotX.MakeRotationX(gDelta * 4 * Math.PI);
+  var matRotZ = new mat4();
+  matRotZ.MakeRotationZ(gDelta * 6 * Math.PI);
+
+  var matTrans = new mat4();
+  matTrans.MakeTranslation(new vec3(0,0,5));
+
+  var matProj = new mat4();
+  matProj.MakeProject(Math.PI/3.4, menuwidth/menuheight, 0.1, 100, menuwidth, menuheight);
+
+  const transVertices = new Array(12);
+  for (i=0; i<12; i++)
+  {
+    transVertices[i] = matRotY.mul(vertices[i]);
+    transVertices[i] = matRotX.mul(transVertices[i]);
+    transVertices[i] = matRotZ.mul(transVertices[i]);
+    transVertices[i] = matTrans.mul(transVertices[i]);
+  }
+
+  const rasterVertices = new Array(12);
+  for (i=0; i<12; i++)
+  {
+    var projvec = matProj.mulvec4(transVertices[i]);
+    rasterVertices[i] = new vec3();
+    rasterVertices[i].mX = menuwidth*0.5 + menuwidth * projvec.mX / projvec.mW;
+    rasterVertices[i].mY = menuheight*0.5 + menuheight * projvec.mY / projvec.mW;
+  }
+  
+  const faces = [
+    [0, 2, 1], [0, 3, 2], [0, 4, 3], [0, 5, 4], [0, 1, 5],
+    [11, 6, 7], [11, 7, 8], [11, 8, 9], [11, 9, 10], [11, 10, 6],
+    [1, 2, 6], [2, 3, 7], [3, 4, 8], [4, 5, 9], [5, 1, 10],
+    [6, 2, 7], [7, 3, 8], [8, 4, 9], [9, 5, 10], [10, 1, 6]
+  ];
+
+  faces.forEach(face => {
+    // calculate the face normal
+    var normal = transVertices[face[1]].sub(transVertices[face[0]]).Cross(transVertices[face[2]].sub(transVertices[face[0]])).Normalise();
+
+    // diffuse colour + then add a "specular" highlight
+    var dp3 = 0.5*normal.dot(new vec3(0.2,0.2,-1));
+    dp3 += Math.pow(normal.dot(new vec3(0.2,0.2,-1)), 5);
+
+    // check for visibility
+    var cross = rasterVertices[face[1]].sub(rasterVertices[face[0]]).Cross(rasterVertices[face[2]].sub(rasterVertices[face[0]])).Normalise();
+  
+    if (cross.mZ<0)
+    {
+      ctx.beginPath();
+      ctx.moveTo(rasterVertices[face[0]].mX, rasterVertices[face[0]].mY);
+      ctx.lineTo(rasterVertices[face[1]].mX, rasterVertices[face[1]].mY);
+      ctx.lineTo(rasterVertices[face[2]].mX, rasterVertices[face[2]].mY);
+      ctx.closePath();
+      var colorValue = Math.max(0, Math.min(1, dp3));
+      var color = Math.floor(colorValue * 255);
+      ctx.fillStyle = "rgb(" + color + "," + color + "," + color + ")";
+      ctx.fill();
+      ctx.strokeStyle = "black";
+      ctx.stroke();
+    }
+  });
+}
+
 var gFrame = 0;
 var gLastTime = Date.now();
 
 function Tick()
 {
-    gDelta += 0.0013;
+    gDelta += 0.0005;
     if (gDelta>1.0) gDelta -= 1.0;
     gPosition = new vec3(Math.cos((gDelta+0.0)*2*Math.PI)*17, 10, -30);
     
@@ -675,11 +831,59 @@ function ResetRGB()
 
 </SCRIPT>
 
+<STYLE>
+  .MenuItem {
+    right: 20px;
+    transform: translateY(-50%);
+    text-align: center;
+    width: 240px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 18px;
+    border-radius: 15px;
+    padding: 10px;
+    border: 1px solid white;
+    font-family: 'Playfair Display', serif;
+    box-shadow: 10px 6px 6px rgba(0, 0, 0, 0.5);
+    transition: background-color 0.3s ease;
+  }
+  
+  .MenuItem:hover {
+    background-color: rgba(255, 165, 0, 0.8);
+  }
+  </STYLE>
+  
 </HEAD>
 <BODY id="body">
+
+<DIV style="position:absolute; top:60; right:60; width:280px; overflow:hidden; border:2px; text-align:left;">
+<DIV style="top: 0px; left: 30; text-align: center; width: 240px; background-color: rgba(0, 0, 0, 0.3); color: white; font-size: 18px; border-radius: 15px; padding: 10px; border: 1px solid white; font-family: 'Playfair Display', serif; box-shadow: 10px 6px 6px rgba(0, 0, 0, 0.5);">
+WOOFRACTAL.COM  
+<BR><BR>
+<span style="font-size: 12px;">Mucking about with generative art, mathematics, fractals and graphics</span>
+</DIV>
+    
+<DIV style="top: 100; right: 0;">
+<CANVAS id="canvas2" width="260" height="300" style="border:0px solid #000000;"></canvas>
+</DIV>
+<BR>
+<DIV class="MenuItem" style="top: calc(50% + 170px);">
+  BIFURCATION  
+</DIV>
+<BR>
+<DIV class="MenuItem" style="top: calc(50% + 230px);">
+  MANDELBROT
+</DIV>
+<BR>
+<DIV class="MenuItem" style="top: calc(50% + 290px);">
+  MANDELBULB
+</DIV>
+</DIV>
 
 <script>
 CreateCanvas(true, true, 1200, 1000, 0, 0, 0.5);
 </script>
+
+
 </BODY>
 </HTML>
