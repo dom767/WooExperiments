@@ -22,7 +22,7 @@ function getInitialAngles(index) {
 }
 
 // Draw trajectory from angle array to phase canvas
-function drawTrajectoryToPhaseCanvas(trajectory) {
+function drawTrajectoryToPhaseCanvas(index, trajectory) {
     const pcx = phaseCanvas.width / 2;
     const pcy = phaseCanvas.height / 2;
     const pScaleX = phaseCanvas.width / (2 * Math.PI);
@@ -38,6 +38,14 @@ function drawTrajectoryToPhaseCanvas(trajectory) {
     
     phaseCtx.fillStyle = 'rgba(0,0,0,1)';
     phaseCtx.fillRect(pcx + trajectory[0] * pScaleX, pcy + trajectory[1] * pScaleY, 3,3);
+    phaseCtx.fillStyle = 'rgba(255,0,0,1)';
+    phaseCtx.fillRect(pcx + trajectory[(steps-1)*2] * pScaleX, pcy + trajectory[(steps-1)*2+1] * pScaleY, 3,3);
+    angle1 = Math.atan2(p1x[index], p1y[index]);
+    const dx = p2x[index] - p1x[index];
+    const dy = p2y[index] - p1y[index];
+    angle2 = Math.atan2(dx, dy);
+    phaseCtx.fillStyle = 'rgba(0,255,0,1)';
+    phaseCtx.fillRect(pcx + angle1 * pScaleX, pcy + angle2 * pScaleY, 3,3);
 
     for (let s = 0; s < steps; s++) {
         angle1 = trajectory[s * 2];
@@ -73,6 +81,13 @@ function drawTrajectoryToPhaseCanvas(trajectory) {
 // Async function to re-simulate a pendulum using the worker (no physics duplication)
 async function resimulatePendulum(index, steps) {
     const { initTheta1, initTheta2 } = getInitialAngles(index);
+    // Capture state at start to detect changes during async operation
+    const startViewMinT1 = viewMinT1;
+    const startViewMaxT1 = viewMaxT1;
+    const startViewMinT2 = viewMinT2;
+    const startViewMaxT2 = viewMaxT2;
+    const startCatchingUp = isCatchingUp;
+    
     // Use worker to simulate trajectory (reuses worker's simulation code)
     // Match the dt used in the current simulation mode so the trajectory duration aligns.
     let trajDt = SIM_DT;
@@ -81,8 +96,26 @@ async function resimulatePendulum(index, steps) {
     }
     const trajectory = await simulateTrajectoryAsync(initTheta1, initTheta2, steps, trajDt);
 
+    // Check if we're still viewing the same pendulum (avoid race condition)
+    if (activePendulumIndex !== index) {
+        return null;
+    }
+    // Check if view bounds changed during async operation (zoom occurred)
+    if (viewMinT1 !== startViewMinT1 || viewMaxT1 !== startViewMaxT1 ||
+        viewMinT2 !== startViewMinT2 || viewMaxT2 !== startViewMaxT2) {
+        return null;
+    }
+    // Check if catch-up state changed (pendulum states may be inconsistent)
+    if (isCatchingUp !== startCatchingUp) {
+        return null;
+    }
+    // Don't draw during catch-up as pendulum states are being progressively updated
+    if (isCatchingUp) {
+        return null;
+    }
+
     // Draw trajectory to phase canvas
-    return drawTrajectoryToPhaseCanvas(trajectory);
+    return drawTrajectoryToPhaseCanvas(index, trajectory);
 }
 
 // Helper for HSL to RGB
@@ -421,8 +454,8 @@ function drawPhasePlot(i) {
         if (totalSimulationSteps > 0) {
             // Simulate trajectory using worker (async, updates when complete)
             resimulatePendulum(i, totalSimulationSteps).then(result => {
-                // Only update if still viewing the same pendulum
-                if (activePendulumIndex === i) {
+                // Only update if result is valid (not stale due to race condition)
+                if (result && activePendulumIndex === i) {
                     lastPhasePoint = result;
                 }
             });
@@ -539,9 +572,10 @@ function draw() {
     // 4. Update Stats
     const end = performance.now();
     lastRenderTime = end - start;
+    const mouseStats = currentMode !== 'single' ? `X: ${Math.floor(mouseX)}, Y: ${Math.floor(mouseY)}<br>` : '';
     perfStatsContent.innerHTML = `
         Iter: ${totalSimulationSteps.toLocaleString()}<br>
-        Sim: ${lastSimTime.toFixed(2)}ms<br>
+        ${mouseStats}Sim: ${lastSimTime.toFixed(2)}ms<br>
         Render: ${lastRenderTime.toFixed(2)}ms
     `;
 }

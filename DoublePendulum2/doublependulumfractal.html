@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double Pendulum Fractal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: #f0f0f0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Panel base styles */
+        .panel {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-width: 200px;
+        }
+
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+
+        #controls h2 {
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 2px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            margin-top: 2px;
+        }
+
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 3px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            color: #333;
+            font-family: inherit;
+            font-size: 11px;
+        }
+
+        .control-group input[type="number"]:hover {
+            border-color: #bbb;
+        }
+
+        .control-group input[type="number"]:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 3px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            color: #333;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .control-group select:hover {
+            border-color: #bbb;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .value-display {
+            font-size: 11px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        button {
+            width: 100%;
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f8f9fa;
+            color: #333;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            border-color: #bbb;
+            background: #f0f0f0;
+        }
+
+        button:active {
+            background: #e9ecef;
+        }
+
+        #status {
+            margin-top: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        #instructions {
+            margin-top: 8px;
+            font-size: 10px;
+            color: #999;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        /* Minimap */
+        #minimapContainer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+
+        #minimapPanel {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #minimapPanel label {
+            display: block;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #minimapWrapper {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        #minimapCanvas {
+            display: block;
+            width: 120px;
+            height: 120px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+
+        #minimapViewport {
+            position: absolute;
+            border: 2px solid #e74c3c;
+            box-sizing: border-box;
+            pointer-events: none;
+            border-radius: 1px;
+        }
+
+        /* Pendulum Visualization Overlay */
+        #pendulumOverlay {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 100;
+        }
+
+        #pendulumOverlay.visible {
+            display: block;
+        }
+
+        #pendulumOverlay h3 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #closeOverlay {
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            line-height: 1;
+            width: auto;
+        }
+
+        #closeOverlay:hover {
+            color: #333;
+            background: none;
+        }
+
+        .overlay-content {
+            display: flex;
+            gap: 15px;
+        }
+
+        .viz-container {
+            text-align: center;
+        }
+
+        .viz-container label {
+            display: block;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #pendulumCanvas, #phaseCanvas {
+            background: #fafafa;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+
+        #simInfo {
+            margin-top: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+        }
+
+        #progressBar {
+            width: 100%;
+            height: 3px;
+            background: #eee;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        #progressFill {
+            height: 100%;
+            background: #667eea;
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="controls" class="panel">
+        <h2>Double Pendulum Fractal</h2>
+        
+        <div class="control-group">
+            <label>Iterations: <span id="iterValue" class="value-display">1000</span></label>
+            <input type="range" id="iterations" min="100" max="10000" value="1000" step="100">
+        </div>
+        
+        <div class="control-group">
+            <label>Timestep (dt): <span id="dtValue" class="value-display">0.010</span></label>
+            <input type="range" id="timestep" min="0" max="100" value="33" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Gravity (g): <span id="gravityValue" class="value-display">10.0</span></label>
+            <input type="range" id="gravity" min="1" max="20" value="10" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Mass 1 (m1): <span id="mass1Value" class="value-display">1.0</span></label>
+            <input type="range" id="mass1" min="0.1" max="2" value="1" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Mass 2 (m2): <span id="mass2Value" class="value-display">1.0</span></label>
+            <input type="range" id="mass2" min="0.1" max="2" value="1" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Arm 1 Length: <span id="length1Value" class="value-display">1.0</span></label>
+            <input type="range" id="length1" min="0.1" max="1" value="1" step="0.05">
+        </div>
+        
+        <div class="control-group">
+            <label>Color Scheme</label>
+            <select id="colorScheme">
+                <option value="0">Final Angle</option>
+                <option value="1">Angle Gradient</option>
+            </select>
+        </div>
+        
+        <button id="renderBtn">Render Fractal</button>
+        <button id="resetViewBtn">Reset View</button>
+        
+        <div id="status">Ready</div>
+        <div id="instructions">
+            Scroll to zoom | Drag to pan<br>
+            Click to simulate pendulum
+        </div>
+    </div>
+
+    <!-- Minimap -->
+    <div id="minimapContainer">
+        <div id="minimapPanel">
+            <label>Overview</label>
+            <div id="minimapWrapper">
+                <canvas id="minimapCanvas" width="120" height="120"></canvas>
+                <div id="minimapViewport"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pendulum Visualization Overlay -->
+    <div id="pendulumOverlay">
+        <h3>
+            <span>Pendulum Simulation</span>
+            <button id="closeOverlay">&times;</button>
+        </h3>
+        <div class="overlay-content">
+            <div class="viz-container">
+                <label>Pendulum</label>
+                <canvas id="pendulumCanvas" width="200" height="200"></canvas>
+            </div>
+            <div class="viz-container">
+                <label>Phase Space (θ₁ vs θ₂)</label>
+                <canvas id="phaseCanvas" width="200" height="200"></canvas>
+            </div>
+        </div>
+        <div id="simInfo">
+            Initial: θ₁ = <span id="initTheta1">0</span>, θ₂ = <span id="initTheta2">0</span>
+        </div>
+        <div id="progressBar">
+            <div id="progressFill"></div>
+        </div>
+    </div>
+
+    <!-- Vertex Shader -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+        
+        void main() {
+            v_uv = a_position * 0.5 + 0.5;
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    </script>
+
+    <!-- Fragment Shader -->
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        #extension GL_OES_standard_derivatives : enable
+        precision highp float;
+        
+        varying vec2 v_uv;
+        
+        uniform int u_iterations;
+        uniform float u_dt;
+        uniform float u_gravity;
+        uniform vec2 u_viewCenter;  // Center of view in angle space
+        uniform float u_viewScale;   // Scale factor (1.0 = full view from -PI to PI)
+        uniform int u_colorScheme;   // 0 = final angle, 1 = angle gradient
+        uniform float u_m1;          // Mass of first pendulum
+        uniform float u_m2;          // Mass of second pendulum
+        uniform float u_L1;          // Length of first arm (L2 is always 1.0)
+        
+        const float PI = 3.14159265359;
+        const float L2 = 1.0;        // Length of second arm (fixed)
+        const float TWO_PI = 6.28318530718;
+        
+        // Normalize angle to [-PI, PI]
+        float normalizeAngle(float angle) {
+            float a = mod(angle + PI, TWO_PI);
+            if (a < 0.0) a += TWO_PI;
+            return a - PI;
+        }
+        
+        // HSV to RGB conversion
+        vec3 hsv2rgb(vec3 c) {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+        
+        // Compute derivatives for double pendulum
+        // State: [theta1, theta2, omega1, omega2]
+        // Returns: [dtheta1/dt, dtheta2/dt, domega1/dt, domega2/dt]
+        vec4 derivatives(vec4 state, float g) {
+            float theta1 = state.x;
+            float theta2 = state.y;
+            float omega1 = state.z;
+            float omega2 = state.w;
+            
+            float delta = theta1 - theta2;
+            float sinDelta = sin(delta);
+            float cosDelta = cos(delta);
+            float sin2Delta = sinDelta * sinDelta;
+            
+            float sinTheta1 = sin(theta1);
+            float sinTheta2 = sin(theta2);
+            
+            // General double pendulum equations with variable masses and lengths
+            // m1, m2 = masses; L1, L2 = lengths
+            float M = u_m1 + u_m2;
+            
+            // Denominator
+            float den = u_L1 * (u_m1 + u_m2 * sin2Delta);
+            
+            // Angular acceleration of first pendulum
+            float alpha1 = (u_m2 * g * sinTheta2 * cosDelta 
+                           - u_m2 * sinDelta * (u_L1 * omega1 * omega1 * cosDelta + L2 * omega2 * omega2)
+                           - M * g * sinTheta1) / den;
+            
+            // Angular acceleration of second pendulum
+            float den2 = L2 * (u_m1 + u_m2 * sin2Delta);
+            float alpha2 = (M * (u_L1 * omega1 * omega1 * sinDelta - g * sinTheta2 + g * sinTheta1 * cosDelta)
+                           + u_m2 * L2 * omega2 * omega2 * sinDelta * cosDelta) / den2;
+            
+            return vec4(omega1, omega2, alpha1, alpha2);
+        }
+        
+        // RK4 integration step
+        vec4 rk4Step(vec4 state, float dt, float g) {
+            vec4 k1 = derivatives(state, g);
+            vec4 k2 = derivatives(state + 0.5 * dt * k1, g);
+            vec4 k3 = derivatives(state + 0.5 * dt * k2, g);
+            vec4 k4 = derivatives(state + dt * k3, g);
+            
+            return state + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+        }
+        
+        void main() {
+            // Map UV coordinates to initial angles with zoom and pan
+            // viewScale = 1.0 means full range (-PI to PI), smaller = zoomed in
+            float halfRange = PI * u_viewScale;
+            float theta1_init = u_viewCenter.x + (v_uv.x - 0.5) * 2.0 * halfRange;
+            float theta2_init = u_viewCenter.y + (v_uv.y - 0.5) * 2.0 * halfRange;
+            
+            // Check if outside valid range - render as dark
+            if (theta1_init < -PI || theta1_init > PI || theta2_init < -PI || theta2_init > PI) {
+                gl_FragColor = vec4(0.1, 0.1, 0.1, 1.0);
+                return;
+            }
+            
+            // Initial state: angles from pixel position, zero angular velocities
+            vec4 state = vec4(theta1_init, theta2_init, 0.0, 0.0);
+            
+            // Run simulation for specified iterations
+            for (int i = 0; i < 10000; i++) {
+                if (i >= u_iterations) break;
+                
+                state = rk4Step(state, u_dt, u_gravity);
+                
+                // Normalize angles to prevent numerical overflow
+                state.x = normalizeAngle(state.x);
+                state.y = normalizeAngle(state.y);
+            }
+            
+            // Color based on selected scheme
+            vec3 color;
+            
+            if (u_colorScheme == 0) {
+                // Scheme 0: Color based on pendulum positions (cosine of angles)
+                float cos1 = cos(state.x); // First pendulum
+                float cos2 = cos(state.y); // Second pendulum
+                
+                // Map cos from [-1, 1] to [0, 1]: down=0, up=1
+                float w1 = clamp((1.0 - cos1) / 2.0, 0.0, 1.0);
+                float w2 = clamp((1.0 - cos2) / 2.0, 0.0, 1.0);
+                
+                // Red from first pendulum, blue from second, green is a mix
+                float r = w1;
+                float g = w1 * 0.627 + w2 * 0.373; // 160/255 and 95/255
+                float b = w2;
+                
+                color = vec3(r, g, b);
+            } else {
+                // Scheme 1: Angle gradient - run second simulation with offset initial conditions
+                // Small epsilon offset based on view scale for meaningful comparison
+                float epsilon = u_viewScale * PI * 0.001;
+                
+                // Run second simulation with slightly offset initial angles
+                vec4 state2 = vec4(theta1_init + epsilon, theta2_init + epsilon, 0.0, 0.0);
+                
+                for (int i = 0; i < 10000; i++) {
+                    if (i >= u_iterations) break;
+                    state2 = rk4Step(state2, u_dt, u_gravity);
+                    state2.x = normalizeAngle(state2.x);
+                    state2.y = normalizeAngle(state2.y);
+                }
+                
+                // Calculate angular difference between the two simulations
+                float dTheta1 = abs(state.x - state2.x);
+                float dTheta2 = abs(state.y - state2.y);
+                
+                // Handle wrap-around: if difference > PI, use shorter arc
+                if (dTheta1 > PI) dTheta1 = TWO_PI - dTheta1;
+                if (dTheta2 > PI) dTheta2 = TWO_PI - dTheta2;
+                
+                float diff = sqrt(dTheta1 * dTheta1 + dTheta2 * dTheta2);
+                
+                // Normalize to 0-1 range with non-linear scaling
+                float intensity = 1.0 - exp(-diff * 1.5);
+                
+                // Color gradient: black -> blue -> orange -> white
+                if (intensity < 0.33) {
+                    // Black to blue
+                    float t = intensity / 0.33;
+                    color = mix(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.2, 0.8), t);
+                } else if (intensity < 0.67) {
+                    // Blue to orange
+                    float t = (intensity - 0.33) / 0.34;
+                    color = mix(vec3(0.0, 0.2, 0.8), vec3(1.0, 0.5, 0.0), t);
+                } else {
+                    // Orange to white
+                    float t = (intensity - 0.67) / 0.33;
+                    color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 1.0, 1.0), t);
+                }
+            }
+            
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
+    <!-- JavaScript -->
+    <script>
+        // WebGL setup
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('WebGL not supported in this browser');
+            throw new Error('WebGL not supported');
+        }
+
+        // Enable derivatives extension for gradient color scheme
+        const derivativesExt = gl.getExtension('OES_standard_derivatives');
+        if (!derivativesExt) {
+            console.warn('OES_standard_derivatives not supported - gradient color scheme may not work');
+        }
+
+        // Shader compilation helper
+        function compileShader(gl, source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        // Create shader program
+        function createProgram(gl, vertexSource, fragmentSource) {
+            const vertexShader = compileShader(gl, vertexSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(gl, fragmentSource, gl.FRAGMENT_SHADER);
+            
+            if (!vertexShader || !fragmentShader) return null;
+            
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program linking error:', gl.getProgramInfoLog(program));
+                return null;
+            }
+            return program;
+        }
+
+        // Get shader sources from script tags
+        const vertexSource = document.getElementById('vertexShader').textContent;
+        const fragmentSource = document.getElementById('fragmentShader').textContent;
+
+        // Create program
+        const program = createProgram(gl, vertexSource, fragmentSource);
+        if (!program) {
+            document.getElementById('status').textContent = 'Error: Failed to compile shaders';
+            throw new Error('Failed to create shader program');
+        }
+
+        gl.useProgram(program);
+
+        // Get attribute and uniform locations
+        const positionLocation = gl.getAttribLocation(program, 'a_position');
+        const iterationsLocation = gl.getUniformLocation(program, 'u_iterations');
+        const dtLocation = gl.getUniformLocation(program, 'u_dt');
+        const gravityLocation = gl.getUniformLocation(program, 'u_gravity');
+        const viewCenterLocation = gl.getUniformLocation(program, 'u_viewCenter');
+        const viewScaleLocation = gl.getUniformLocation(program, 'u_viewScale');
+        const colorSchemeLocation = gl.getUniformLocation(program, 'u_colorScheme');
+        const m1Location = gl.getUniformLocation(program, 'u_m1');
+        const m2Location = gl.getUniformLocation(program, 'u_m2');
+        const L1Location = gl.getUniformLocation(program, 'u_L1');
+
+        // View state for zoom and pan
+        const PI = Math.PI;
+        let viewCenter = { x: 0, y: 0 };  // Center in angle space
+        let viewScale = 1.0;              // 1.0 = full view (-PI to PI), smaller = zoomed in
+        const MIN_SCALE = 0.001;          // Maximum zoom in
+        const MAX_SCALE = 1.0;            // Maximum zoom out (full view)
+        const ZOOM_FACTOR = 0.9;          // How much each scroll step zooms
+
+        // Drag state
+        let isDragging = false;
+        let lastMousePos = { x: 0, y: 0 };
+
+        // Convert screen coordinates to angle space
+        function screenToAngle(screenX, screenY) {
+            const rect = canvas.getBoundingClientRect();
+            const uvX = (screenX - rect.left) / rect.width;
+            const uvY = 1.0 - (screenY - rect.top) / rect.height; // Flip Y
+            
+            const halfRange = PI * viewScale;
+            return {
+                x: viewCenter.x + (uvX - 0.5) * 2.0 * halfRange,
+                y: viewCenter.y + (uvY - 0.5) * 2.0 * halfRange
+            };
+        }
+
+        // Clamp view to stay within bounds (-PI to PI)
+        function clampView() {
+            const halfRange = PI * viewScale;
+            
+            // Clamp center so edges don't go beyond -PI or PI
+            viewCenter.x = Math.max(-PI + halfRange, Math.min(PI - halfRange, viewCenter.x));
+            viewCenter.y = Math.max(-PI + halfRange, Math.min(PI - halfRange, viewCenter.y));
+            
+            // If fully zoomed out, center should be 0
+            if (viewScale >= 1.0) {
+                viewCenter.x = 0;
+                viewCenter.y = 0;
+            }
+        }
+
+        // Mouse wheel zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            // Get mouse position in angle space before zoom
+            const mouseAngle = screenToAngle(e.clientX, e.clientY);
+            
+            // Zoom in or out
+            if (e.deltaY < 0) {
+                // Zoom in
+                viewScale *= ZOOM_FACTOR;
+            } else {
+                // Zoom out
+                viewScale /= ZOOM_FACTOR;
+            }
+            
+            // Clamp scale
+            viewScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, viewScale));
+            
+            // Adjust center to zoom around mouse position
+            if (viewScale < MAX_SCALE) {
+                // Get new mouse position in angle space after scale change
+                const rect = canvas.getBoundingClientRect();
+                const uvX = (e.clientX - rect.left) / rect.width;
+                const uvY = 1.0 - (e.clientY - rect.top) / rect.height;
+                
+                const halfRange = PI * viewScale;
+                const newMouseAngleX = viewCenter.x + (uvX - 0.5) * 2.0 * halfRange;
+                const newMouseAngleY = viewCenter.y + (uvY - 0.5) * 2.0 * halfRange;
+                
+                // Adjust center so mouse stays at same angle position
+                viewCenter.x += mouseAngle.x - newMouseAngleX;
+                viewCenter.y += mouseAngle.y - newMouseAngleY;
+            }
+            
+            clampView();
+            render();
+        }, { passive: false });
+
+        // Set initial cursor style
+        canvas.style.cursor = 'pointer';
+
+        // Create fullscreen quad
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+            -1,  1,
+             1, -1,
+             1,  1
+        ]), gl.STATIC_DRAW);
+
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        // Resize canvas to match display size
+        function resizeCanvas() {
+            const displayWidth = window.innerWidth;
+            const displayHeight = window.innerHeight;
+            
+            if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+                canvas.width = displayWidth;
+                canvas.height = displayHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Render the fractal
+        function render() {
+            const iterations = parseInt(document.getElementById('iterations').value);
+            const dt = getTimestepValue();
+            const gravity = getGravityValue();
+
+            resizeCanvas();
+
+            // Set uniforms
+            gl.uniform1i(iterationsLocation, iterations);
+            gl.uniform1f(dtLocation, dt);
+            gl.uniform1f(gravityLocation, gravity);
+            gl.uniform2f(viewCenterLocation, viewCenter.x, viewCenter.y);
+            gl.uniform1f(viewScaleLocation, viewScale);
+            gl.uniform1i(colorSchemeLocation, parseInt(document.getElementById('colorScheme').value));
+            gl.uniform1f(m1Location, parseFloat(document.getElementById('mass1').value));
+            gl.uniform1f(m2Location, parseFloat(document.getElementById('mass2').value));
+            gl.uniform1f(L1Location, parseFloat(document.getElementById('length1').value));
+
+            // Draw
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            // Calculate zoom percentage
+            const zoomPercent = Math.round((1 / viewScale) * 100);
+            document.getElementById('status').textContent = 
+                `Zoom: ${zoomPercent}% | Center: (${viewCenter.x.toFixed(3)}, ${viewCenter.y.toFixed(3)})`;
+        }
+
+        // UI event handlers
+        const iterationsSlider = document.getElementById('iterations');
+        const iterValueDisplay = document.getElementById('iterValue');
+        const timestepSlider = document.getElementById('timestep');
+        const dtValueDisplay = document.getElementById('dtValue');
+        const gravitySlider = document.getElementById('gravity');
+        const gravityValueDisplay = document.getElementById('gravityValue');
+
+        // Logarithmic conversion for timestep: 0.001 to 1.0
+        function sliderToTimestep(sliderValue) {
+            // Map 0-100 to 0.001-1.0 logarithmically
+            const minVal = 0.001;
+            const maxVal = 1.0;
+            return minVal * Math.pow(maxVal / minVal, sliderValue / 100);
+        }
+
+        function getTimestepValue() {
+            return sliderToTimestep(parseFloat(timestepSlider.value));
+        }
+
+        function getGravityValue() {
+            return parseFloat(gravitySlider.value);
+        }
+
+        iterationsSlider.addEventListener('input', () => {
+            iterValueDisplay.textContent = iterationsSlider.value;
+            render();
+        });
+
+        timestepSlider.addEventListener('input', () => {
+            const dt = getTimestepValue();
+            dtValueDisplay.textContent = dt.toFixed(3);
+            render();
+        });
+
+        gravitySlider.addEventListener('input', () => {
+            gravityValueDisplay.textContent = getGravityValue().toFixed(1);
+            render();
+        });
+
+        const mass1Slider = document.getElementById('mass1');
+        const mass1ValueDisplay = document.getElementById('mass1Value');
+        mass1Slider.addEventListener('input', () => {
+            mass1ValueDisplay.textContent = parseFloat(mass1Slider.value).toFixed(1);
+            render();
+        });
+
+        const mass2Slider = document.getElementById('mass2');
+        const mass2ValueDisplay = document.getElementById('mass2Value');
+        mass2Slider.addEventListener('input', () => {
+            mass2ValueDisplay.textContent = parseFloat(mass2Slider.value).toFixed(1);
+            render();
+        });
+
+        const length1Slider = document.getElementById('length1');
+        const length1ValueDisplay = document.getElementById('length1Value');
+        length1Slider.addEventListener('input', () => {
+            length1ValueDisplay.textContent = parseFloat(length1Slider.value).toFixed(2);
+            render();
+        });
+
+        document.getElementById('colorScheme').addEventListener('change', render);
+
+        document.getElementById('renderBtn').addEventListener('click', render);
+
+        document.getElementById('resetViewBtn').addEventListener('click', () => {
+            viewCenter = { x: 0, y: 0 };
+            viewScale = 1.0;
+            render();
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            render();
+        });
+
+        // Initial render
+        render();
+
+        // ==========================================
+        // Minimap
+        // ==========================================
+
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const minimapGl = minimapCanvas.getContext('webgl');
+        const minimapViewport = document.getElementById('minimapViewport');
+
+        // Set up minimap WebGL (reuse the same shader sources)
+        let minimapProgram = null;
+        let minimapUniforms = {};
+
+        if (minimapGl) {
+            // Enable derivatives extension for minimap too
+            minimapGl.getExtension('OES_standard_derivatives');
+
+            // Create minimap program (reuse shader sources)
+            minimapProgram = createProgram(minimapGl, vertexSource, fragmentSource);
+            
+            if (minimapProgram) {
+                minimapGl.useProgram(minimapProgram);
+
+                // Get uniform locations for minimap
+                minimapUniforms = {
+                    position: minimapGl.getAttribLocation(minimapProgram, 'a_position'),
+                    iterations: minimapGl.getUniformLocation(minimapProgram, 'u_iterations'),
+                    dt: minimapGl.getUniformLocation(minimapProgram, 'u_dt'),
+                    gravity: minimapGl.getUniformLocation(minimapProgram, 'u_gravity'),
+                    viewCenter: minimapGl.getUniformLocation(minimapProgram, 'u_viewCenter'),
+                    viewScale: minimapGl.getUniformLocation(minimapProgram, 'u_viewScale'),
+                    colorScheme: minimapGl.getUniformLocation(minimapProgram, 'u_colorScheme'),
+                    m1: minimapGl.getUniformLocation(minimapProgram, 'u_m1'),
+                    m2: minimapGl.getUniformLocation(minimapProgram, 'u_m2'),
+                    L1: minimapGl.getUniformLocation(minimapProgram, 'u_L1')
+                };
+
+                // Create fullscreen quad for minimap
+                const minimapBuffer = minimapGl.createBuffer();
+                minimapGl.bindBuffer(minimapGl.ARRAY_BUFFER, minimapBuffer);
+                minimapGl.bufferData(minimapGl.ARRAY_BUFFER, new Float32Array([
+                    -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1
+                ]), minimapGl.STATIC_DRAW);
+
+                minimapGl.enableVertexAttribArray(minimapUniforms.position);
+                minimapGl.vertexAttribPointer(minimapUniforms.position, 2, minimapGl.FLOAT, false, 0, 0);
+                minimapGl.viewport(0, 0, 120, 120);
+            }
+        }
+
+        // Render minimap (always shows full view)
+        function renderMinimap() {
+            if (!minimapGl || !minimapProgram) return;
+
+            minimapGl.useProgram(minimapProgram);
+
+            // Use lower iterations for minimap performance
+            const iterations = Math.min(parseInt(document.getElementById('iterations').value), 500);
+            const dt = getTimestepValue();
+            const gravity = getGravityValue();
+            const colorScheme = parseInt(document.getElementById('colorScheme').value);
+
+            minimapGl.uniform1i(minimapUniforms.iterations, iterations);
+            minimapGl.uniform1f(minimapUniforms.dt, dt);
+            minimapGl.uniform1f(minimapUniforms.gravity, gravity);
+            minimapGl.uniform2f(minimapUniforms.viewCenter, 0, 0); // Always centered
+            minimapGl.uniform1f(minimapUniforms.viewScale, 1.0);   // Always full view
+            minimapGl.uniform1i(minimapUniforms.colorScheme, colorScheme);
+            minimapGl.uniform1f(minimapUniforms.m1, parseFloat(document.getElementById('mass1').value));
+            minimapGl.uniform1f(minimapUniforms.m2, parseFloat(document.getElementById('mass2').value));
+            minimapGl.uniform1f(minimapUniforms.L1, parseFloat(document.getElementById('length1').value));
+
+            minimapGl.drawArrays(minimapGl.TRIANGLES, 0, 6);
+        }
+
+        // Update viewport indicator rectangle
+        function updateMinimapViewport() {
+            const mapSize = 120; // pixels
+            
+            // Calculate viewport rectangle in minimap coordinates
+            // Full range is -PI to PI, so total range is 2*PI
+            // viewScale=1 means we see the full range, viewScale=0.5 means we see half, etc.
+            
+            const halfRange = PI * viewScale;
+            
+            // Convert view bounds to 0-1 coordinates
+            const left = (viewCenter.x - halfRange + PI) / (2 * PI);
+            const right = (viewCenter.x + halfRange + PI) / (2 * PI);
+            const top = (viewCenter.y + halfRange + PI) / (2 * PI);
+            const bottom = (viewCenter.y - halfRange + PI) / (2 * PI);
+            
+            // Convert to pixel coordinates (note: CSS top is from top, not bottom)
+            const pxLeft = left * mapSize;
+            const pxWidth = (right - left) * mapSize;
+            const pxTop = (1 - top) * mapSize; // Flip Y
+            const pxHeight = (top - bottom) * mapSize;
+            
+            minimapViewport.style.left = pxLeft + 'px';
+            minimapViewport.style.top = pxTop + 'px';
+            minimapViewport.style.width = Math.max(4, pxWidth) + 'px';
+            minimapViewport.style.height = Math.max(4, pxHeight) + 'px';
+            
+            // Hide viewport indicator when showing full view
+            minimapViewport.style.display = viewScale >= 0.99 ? 'none' : 'block';
+        }
+
+        // Initial minimap render and viewport update
+        renderMinimap();
+        updateMinimapViewport();
+
+        // Update minimap when settings change (hook into render)
+        const originalRender = render;
+        render = function() {
+            originalRender();
+            renderMinimap();
+            updateMinimapViewport();
+        };
+
+        // ==========================================
+        // Pendulum Visualization
+        // ==========================================
+
+        const pendulumOverlay = document.getElementById('pendulumOverlay');
+        const pendulumCanvas = document.getElementById('pendulumCanvas');
+        const phaseCanvas = document.getElementById('phaseCanvas');
+        const pendulumCtx = pendulumCanvas.getContext('2d');
+        const phaseCtx = phaseCanvas.getContext('2d');
+
+        let pendulumAnimationId = null;
+        let clickStartPos = null;
+        const CLICK_THRESHOLD = 5; // pixels - distinguish click from drag
+
+        // Double pendulum physics in JavaScript (mirrors the shader)
+        function computeDerivatives(theta1, theta2, omega1, omega2, g, m1, m2, L1) {
+            const L2 = 1.0;
+            const delta = theta1 - theta2;
+            const sinDelta = Math.sin(delta);
+            const cosDelta = Math.cos(delta);
+            const sin2Delta = sinDelta * sinDelta;
+            
+            const sinTheta1 = Math.sin(theta1);
+            const sinTheta2 = Math.sin(theta2);
+            
+            const M = m1 + m2;
+            
+            // General double pendulum equations with variable masses and lengths
+            const den = L1 * (m1 + m2 * sin2Delta);
+            
+            const alpha1 = (m2 * g * sinTheta2 * cosDelta 
+                           - m2 * sinDelta * (L1 * omega1 * omega1 * cosDelta + L2 * omega2 * omega2)
+                           - M * g * sinTheta1) / den;
+            
+            const den2 = L2 * (m1 + m2 * sin2Delta);
+            const alpha2 = (M * (L1 * omega1 * omega1 * sinDelta - g * sinTheta2 + g * sinTheta1 * cosDelta)
+                           + m2 * L2 * omega2 * omega2 * sinDelta * cosDelta) / den2;
+            
+            return { dTheta1: omega1, dTheta2: omega2, dOmega1: alpha1, dOmega2: alpha2 };
+        }
+
+        function rk4Step(state, dt, g, m1, m2, L1) {
+            const { theta1, theta2, omega1, omega2 } = state;
+            
+            const k1 = computeDerivatives(theta1, theta2, omega1, omega2, g, m1, m2, L1);
+            const k2 = computeDerivatives(
+                theta1 + 0.5 * dt * k1.dTheta1,
+                theta2 + 0.5 * dt * k1.dTheta2,
+                omega1 + 0.5 * dt * k1.dOmega1,
+                omega2 + 0.5 * dt * k1.dOmega2,
+                g, m1, m2, L1
+            );
+            const k3 = computeDerivatives(
+                theta1 + 0.5 * dt * k2.dTheta1,
+                theta2 + 0.5 * dt * k2.dTheta2,
+                omega1 + 0.5 * dt * k2.dOmega1,
+                omega2 + 0.5 * dt * k2.dOmega2,
+                g, m1, m2, L1
+            );
+            const k4 = computeDerivatives(
+                theta1 + dt * k3.dTheta1,
+                theta2 + dt * k3.dTheta2,
+                omega1 + dt * k3.dOmega1,
+                omega2 + dt * k3.dOmega2,
+                g, m1, m2, L1
+            );
+            
+            return {
+                theta1: theta1 + (dt / 6) * (k1.dTheta1 + 2*k2.dTheta1 + 2*k3.dTheta1 + k4.dTheta1),
+                theta2: theta2 + (dt / 6) * (k1.dTheta2 + 2*k2.dTheta2 + 2*k3.dTheta2 + k4.dTheta2),
+                omega1: omega1 + (dt / 6) * (k1.dOmega1 + 2*k2.dOmega1 + 2*k3.dOmega1 + k4.dOmega1),
+                omega2: omega2 + (dt / 6) * (k1.dOmega2 + 2*k2.dOmega2 + 2*k3.dOmega2 + k4.dOmega2)
+            };
+        }
+
+        function normalizeAngleJS(angle) {
+            let a = ((angle + PI) % (2 * PI));
+            if (a < 0) a += 2 * PI;
+            return a - PI;
+        }
+
+        // Draw the pendulum
+        function drawPendulum(ctx, theta1, theta2, L1_ratio) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 3;
+            const baseL = Math.min(width, height) / 3.5; // Base length unit
+            const armL1 = baseL * L1_ratio; // First arm length
+            const armL2 = baseL; // Second arm length (always 1.0)
+            
+            // Clear canvas
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Calculate pendulum positions
+            const x1 = centerX + armL1 * Math.sin(theta1);
+            const y1 = centerY + armL1 * Math.cos(theta1);
+            const x2 = x1 + armL2 * Math.sin(theta2);
+            const y2 = y1 + armL2 * Math.cos(theta2);
+            
+            // Draw pivot point
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 4, 0, 2 * PI);
+            ctx.fillStyle = '#999';
+            ctx.fill();
+            
+            // Draw first arm
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x1, y1);
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw first bob
+            ctx.beginPath();
+            ctx.arc(x1, y1, 8, 0, 2 * PI);
+            ctx.fillStyle = '#667eea';
+            ctx.fill();
+            
+            // Draw second arm
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw second bob
+            ctx.beginPath();
+            ctx.arc(x2, y2, 8, 0, 2 * PI);
+            ctx.fillStyle = '#e84393';
+            ctx.fill();
+        }
+
+        // Draw phase plot
+        function drawPhasePlot(ctx, trajectory, currentIdx) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            const padding = 20;
+            
+            // Clear canvas
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw axes
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            
+            // Horizontal axis (θ₁)
+            ctx.beginPath();
+            ctx.moveTo(padding, height / 2);
+            ctx.lineTo(width - padding, height / 2);
+            ctx.stroke();
+            
+            // Vertical axis (θ₂)
+            ctx.beginPath();
+            ctx.moveTo(width / 2, padding);
+            ctx.lineTo(width / 2, height - padding);
+            ctx.stroke();
+            
+            // Draw axis labels
+            ctx.fillStyle = '#999';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('-π', padding + 5, height / 2 + 12);
+            ctx.fillText('π', width - padding - 5, height / 2 + 12);
+            ctx.fillText('π', width / 2 + 10, padding + 5);
+            ctx.fillText('-π', width / 2 + 12, height - padding);
+            
+            // Map angle to canvas coordinates
+            const mapX = (theta) => padding + ((theta + PI) / (2 * PI)) * (width - 2 * padding);
+            const mapY = (theta) => height - padding - ((theta + PI) / (2 * PI)) * (height - 2 * padding);
+            
+            // Draw trajectory up to current index
+            // Guard against drawing lines across angle wrap-around discontinuities
+            const WRAP_THRESHOLD = PI; // If angle jumps more than π, it's a wrap-around
+            
+            if (trajectory.length > 1 && currentIdx > 0) {
+                ctx.strokeStyle = 'rgba(102, 126, 234, 0.7)';
+                ctx.lineWidth = 1.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(mapX(trajectory[0].theta1), mapY(trajectory[0].theta2));
+                
+                for (let i = 1; i <= currentIdx && i < trajectory.length; i++) {
+                    const prev = trajectory[i - 1];
+                    const curr = trajectory[i];
+                    
+                    // Check if either angle wrapped around
+                    const dTheta1 = Math.abs(curr.theta1 - prev.theta1);
+                    const dTheta2 = Math.abs(curr.theta2 - prev.theta2);
+                    
+                    if (dTheta1 > WRAP_THRESHOLD || dTheta2 > WRAP_THRESHOLD) {
+                        // Discontinuity detected - stroke current path and start a new one
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(mapX(curr.theta1), mapY(curr.theta2));
+                    } else {
+                        ctx.lineTo(mapX(curr.theta1), mapY(curr.theta2));
+                    }
+                }
+                
+                ctx.stroke();
+            }
+            
+            // Draw current point
+            if (currentIdx < trajectory.length) {
+                const current = trajectory[currentIdx];
+                ctx.beginPath();
+                ctx.arc(mapX(current.theta1), mapY(current.theta2), 4, 0, 2 * PI);
+                ctx.fillStyle = '#e84393';
+                ctx.fill();
+            }
+            
+            // Draw starting point
+            if (trajectory.length > 0) {
+                ctx.beginPath();
+                ctx.arc(mapX(trajectory[0].theta1), mapY(trajectory[0].theta2), 4, 0, 2 * PI);
+                ctx.fillStyle = '#38ef7d';
+                ctx.fill();
+            }
+        }
+
+        // Start pendulum simulation
+        function startPendulumSimulation(initialTheta1, initialTheta2) {
+            // Cancel any existing animation
+            if (pendulumAnimationId) {
+                cancelAnimationFrame(pendulumAnimationId);
+            }
+            
+            const iterations = parseInt(document.getElementById('iterations').value);
+            const dt = getTimestepValue();
+            const gravity = getGravityValue();
+            const m1 = parseFloat(document.getElementById('mass1').value);
+            const m2 = parseFloat(document.getElementById('mass2').value);
+            const L1 = parseFloat(document.getElementById('length1').value);
+            
+            // Pre-compute the entire trajectory
+            const trajectory = [];
+            let state = {
+                theta1: initialTheta1,
+                theta2: initialTheta2,
+                omega1: 0,
+                omega2: 0
+            };
+            
+            trajectory.push({ ...state });
+            
+            for (let i = 0; i < iterations; i++) {
+                state = rk4Step(state, dt, gravity, m1, m2, L1);
+                state.theta1 = normalizeAngleJS(state.theta1);
+                state.theta2 = normalizeAngleJS(state.theta2);
+                trajectory.push({ ...state });
+            }
+            
+            // Update info display
+            document.getElementById('initTheta1').textContent = initialTheta1.toFixed(3);
+            document.getElementById('initTheta2').textContent = initialTheta2.toFixed(3);
+            
+            // Show overlay
+            pendulumOverlay.classList.add('visible');
+            
+            // Animate through the trajectory
+            let currentFrame = 0;
+            const framesPerAnimationFrame = Math.max(1, Math.floor(iterations / 500)); // Speed up if many iterations
+            
+            function animate() {
+                // Draw current state
+                const state = trajectory[currentFrame];
+                drawPendulum(pendulumCtx, state.theta1, state.theta2, L1);
+                drawPhasePlot(phaseCtx, trajectory, currentFrame);
+                
+                // Update progress bar
+                const progress = (currentFrame / (trajectory.length - 1)) * 100;
+                document.getElementById('progressFill').style.width = progress + '%';
+                
+                // Advance frame
+                currentFrame += framesPerAnimationFrame;
+                
+                if (currentFrame < trajectory.length) {
+                    pendulumAnimationId = requestAnimationFrame(animate);
+                } else {
+                    // Draw final state
+                    currentFrame = trajectory.length - 1;
+                    const finalState = trajectory[currentFrame];
+                    drawPendulum(pendulumCtx, finalState.theta1, finalState.theta2, L1);
+                    drawPhasePlot(phaseCtx, trajectory, currentFrame);
+                    document.getElementById('progressFill').style.width = '100%';
+                }
+            }
+            
+            animate();
+        }
+
+        // Close overlay
+        document.getElementById('closeOverlay').addEventListener('click', () => {
+            pendulumOverlay.classList.remove('visible');
+            if (pendulumAnimationId) {
+                cancelAnimationFrame(pendulumAnimationId);
+                pendulumAnimationId = null;
+            }
+        });
+
+        // Modify click handling to distinguish click from drag
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Left click
+                clickStartPos = { x: e.clientX, y: e.clientY };
+                isDragging = false;
+                lastMousePos = { x: e.clientX, y: e.clientY };
+            }
+        }, true);
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (clickStartPos) {
+                const dx = e.clientX - clickStartPos.x;
+                const dy = e.clientY - clickStartPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > CLICK_THRESHOLD) {
+                    isDragging = true;
+                    canvas.style.cursor = 'grabbing';
+                }
+            }
+            
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const dx = (e.clientX - lastMousePos.x) / rect.width;
+                const dy = (e.clientY - lastMousePos.y) / rect.height;
+                
+                const halfRange = PI * viewScale;
+                viewCenter.x -= dx * 2.0 * halfRange;
+                viewCenter.y += dy * 2.0 * halfRange; // Flip Y
+                
+                clampView();
+                
+                lastMousePos = { x: e.clientX, y: e.clientY };
+                render();
+            }
+        }, true);
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (clickStartPos && !isDragging) {
+                // This was a click, not a drag - start pendulum simulation
+                const angle = screenToAngle(e.clientX, e.clientY);
+                
+                // Check if within valid range
+                if (angle.x >= -PI && angle.x <= PI && angle.y >= -PI && angle.y <= PI) {
+                    startPendulumSimulation(angle.x, angle.y);
+                }
+            }
+            
+            clickStartPos = null;
+            isDragging = false;
+            canvas.style.cursor = 'pointer';
+        }, true);
+
+        canvas.addEventListener('mouseleave', () => {
+            clickStartPos = null;
+            isDragging = false;
+            canvas.style.cursor = 'pointer';
+        }, true);
+    </script>
+</body>
+</html>

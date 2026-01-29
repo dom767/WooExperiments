@@ -156,8 +156,9 @@ function simulateNumerical(data) {
             w2 += (dt / 6) * (k1w2 + 2 * k2w2 + 2 * k3w2 + k4w2);
         }
 
-        theta1[i] = t1;
-        theta2[i] = t2;
+        // Wrap angles to [-PI, PI) to prevent unbounded growth
+        theta1[i] = wrapAngle(t1);
+        theta2[i] = wrapAngle(t2);
         omega1[i] = w1;
         omega2[i] = w2;
 
@@ -222,6 +223,16 @@ function simulateSpring(data) {
     }
 }
 
+// Helper function to wrap angles to [-PI, PI) range
+function wrapAngle(angle) {
+    const TWO_PI = 2 * Math.PI;
+    // Wrap to [-PI, PI) range
+    let wrapped = angle % TWO_PI;
+    if (wrapped > Math.PI) wrapped -= TWO_PI;
+    else if (wrapped <= -Math.PI) wrapped += TWO_PI;
+    return wrapped;
+}
+
 // Trajectory mode: simulate single pendulum, collect angles at each step
 // Reuses existing simulation functions to avoid code duplication
 function simulateTrajectory(data) {
@@ -283,9 +294,9 @@ function simulateTrajectory(data) {
             theta2[0] = Math.atan2(p2x[0] - p1x[0], p2y[0] - p1y[0]);
         }
         
-        // Store angles
-        trajectory[s * 2] = theta1[0];
-        trajectory[s * 2 + 1] = theta2[0];
+        // Store angles with wrapping to [-PI, PI) range
+        trajectory[s * 2] = wrapAngle(theta1[0]);
+        trajectory[s * 2 + 1] = wrapAngle(theta2[0]);
     }
     
     return trajectory;
@@ -301,6 +312,7 @@ self.onmessage = function(e) {
         const end = performance.now();
         self.postMessage({
             trajectoryMode: true,
+            requestId: e.data.requestId,
             trajectory,
             duration: end - start
         }, [trajectory.buffer]);

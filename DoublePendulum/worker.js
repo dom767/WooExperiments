@@ -145,6 +145,17 @@ function simulateSpring(data) {
     }
 }
 
+// Helper function to wrap angles to [-2*PI, 2*PI) range
+function wrapAngle(angle) {
+    const TWO_PI = 2 * Math.PI;
+    const FOUR_PI = 4 * Math.PI;
+    // Wrap to [-2*PI, 2*PI) range
+    // Handle negative modulo correctly
+    let wrapped = ((angle + TWO_PI) % FOUR_PI);
+    if (wrapped < 0) wrapped += FOUR_PI;
+    return wrapped - TWO_PI;
+}
+
 // Trajectory mode: simulate single pendulum, collect angles at each step
 // Reuses existing simulation functions to avoid code duplication
 function simulateTrajectory(data) {
@@ -205,9 +216,9 @@ function simulateTrajectory(data) {
             theta2[0] = Math.atan2(p2x[0] - p1x[0], p2y[0] - p1y[0]);
         }
         
-        // Store angles
-        trajectory[s * 2] = theta1[0];
-        trajectory[s * 2 + 1] = theta2[0];
+        // Store angles with wrapping to [-2*PI, 2*PI) range
+        trajectory[s * 2] = wrapAngle(theta1[0]);
+        trajectory[s * 2 + 1] = wrapAngle(theta2[0]);
     }
     
     return trajectory;

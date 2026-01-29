@@ -17,21 +17,27 @@ function initWorkers() {
 
 // Dedicated worker for trajectory simulation (phase plot)
 let trajectoryWorker = new Worker(workerUrl);
-let trajectoryResolve = null;
+let trajectoryRequestId = 0;
+let trajectoryPendingResolves = new Map();
 
 trajectoryWorker.onmessage = function(e) {
-    if (trajectoryResolve && e.data.trajectoryMode) {
-        trajectoryResolve(e.data.trajectory);
-        trajectoryResolve = null;
+    if (e.data.trajectoryMode && e.data.requestId !== undefined) {
+        const resolve = trajectoryPendingResolves.get(e.data.requestId);
+        if (resolve) {
+            resolve(e.data.trajectory);
+            trajectoryPendingResolves.delete(e.data.requestId);
+        }
     }
 };
 
 // Async function to simulate a single pendulum and get trajectory
 function simulateTrajectoryAsync(initTheta1, initTheta2, steps, dt = SIM_DT) {
     return new Promise((resolve) => {
-        trajectoryResolve = resolve;
+        const requestId = ++trajectoryRequestId;
+        trajectoryPendingResolves.set(requestId, resolve);
         trajectoryWorker.postMessage({
             trajectoryMode: true,
+            requestId,
             initTheta1,
             initTheta2,
             L1, L2, m1, m2, gNumerical,
