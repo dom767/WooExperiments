@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #808080;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .game-container {
+            background: #c0c0c0;
+            padding: 6px;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #c0c0c0;
+            padding: 4px 6px;
+            margin-bottom: 6px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .counter {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            padding: 2px 6px;
+            min-width: 60px;
+            text-align: center;
+            letter-spacing: 2px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .reset-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 20px;
+            cursor: pointer;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            background: #c0c0c0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .reset-btn:active {
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .undo-btn, .solve-btn {
+            padding: 4px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            background: #c0c0c0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .undo-btn:active, .solve-btn:active {
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .undo-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .seed-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            background: #c0c0c0;
+            padding: 4px 6px;
+            margin-bottom: 6px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .seed-label {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .seed-display {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            padding: 2px 8px;
+            min-width: 100px;
+            text-align: center;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .seed-input {
+            width: 100px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            padding: 2px 6px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .seed-btn {
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 2px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            background: #c0c0c0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .seed-btn:active {
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .grid-container {
+            border: 3px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+            background: #c0c0c0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(30, 20px);
+            grid-template-rows: repeat(16, 20px);
+            gap: 0;
+        }
+
+        .cell {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            background: #c0c0c0;
+        }
+
+        .cell:active:not(.revealed):not(.flagged) {
+            border-color: #808080;
+            border-width: 1px;
+        }
+
+        .cell.revealed {
+            border: 1px solid #808080;
+            background: #d0d0d0;
+            cursor: default;
+        }
+
+        .cell.mine {
+            background: #ff0000;
+        }
+
+        .cell.flagged {
+            cursor: pointer;
+        }
+
+        /* Number colors */
+        .cell[data-number="1"] { color: #0000ff; }
+        .cell[data-number="2"] { color: #008000; }
+        .cell[data-number="3"] { color: #ff0000; }
+        .cell[data-number="4"] { color: #000080; }
+        .cell[data-number="5"] { color: #800000; }
+        .cell[data-number="6"] { color: #008080; }
+        .cell[data-number="7"] { color: #000000; }
+        .cell[data-number="8"] { color: #808080; }
+
+        .game-over .cell:not(.revealed) {
+            pointer-events: none;
+        }
+
+        .victory .cell {
+            pointer-events: none;
+        }
+
+        /* Victory Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal {
+            background: #c0c0c0;
+            padding: 20px;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-stats {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .modal-stats div {
+            margin: 5px 0;
+        }
+
+        .modal-input-group {
+            margin-bottom: 15px;
+        }
+
+        .modal-input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 3px solid;
+            border-color: #ffffff #808080 #808080 #ffffff;
+            background: #c0c0c0;
+        }
+
+        .modal-btn:active {
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .modal-btn.primary {
+            background: #000080;
+            color: white;
+        }
+
+        .modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal-message {
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px;
+            font-weight: bold;
+        }
+
+        .modal-message.success {
+            background: #90EE90;
+            color: #006400;
+        }
+
+        .modal-message.error {
+            background: #FFB6C1;
+            color: #8B0000;
+        }
+
+        /* Leaderboard in modal */
+        .leaderboard {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 2px solid;
+            border-color: #808080 #ffffff #ffffff #808080;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            padding: 5px 10px;
+            border-bottom: 1px solid #808080;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .leaderboard-row:nth-child(even) {
+            background: #d0d0d0;
+        }
+
+        .leaderboard-row.highlight {
+            background: #FFFF00;
+            font-weight: bold;
+        }
+
+        .leaderboard-rank {
+            width: 30px;
+        }
+
+        .leaderboard-name {
+            flex: 1;
+        }
+
+        .leaderboard-time {
+            width: 80px;
+            text-align: right;
+        }
+
+        /* Daily Challenge Button */
+        .seed-btn.daily {
+            background: #FFD700;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Victory Modal -->
+    <div class="modal-overlay" id="victory-modal">
+        <div class="modal">
+            <div class="modal-title">🎉 Victory!</div>
+            <div class="modal-stats" id="modal-stats">
+                <div>Time: <span id="modal-time">00:00</span></div>
+                <div>Seed: <span id="modal-seed">------</span></div>
+                <div>Moves: <span id="modal-moves">0</span></div>
+            </div>
+            <div class="modal-input-group">
+                <label for="nickname-input">Enter your name for the leaderboard:</label>
+                <input type="text" class="modal-input" id="nickname-input" placeholder="Your nickname" maxlength="20">
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn primary" id="submit-score-btn">Submit Score</button>
+                <button class="modal-btn" id="close-modal-btn">Close</button>
+            </div>
+            <div class="modal-message" id="modal-message" style="display: none;"></div>
+            <div class="leaderboard" id="modal-leaderboard" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="seed-bar">
+            <span class="seed-label">SEED:</span>
+            <span class="seed-display" id="seed-display">------</span>
+            <input type="text" class="seed-input" id="seed-input" placeholder="Enter seed" maxlength="10">
+            <button class="seed-btn" id="seed-go-btn">GO</button>
+            <button class="seed-btn" id="seed-new-btn">NEW</button>
+            <button class="seed-btn" id="seed-copy-btn">COPY</button>
+            <button class="seed-btn daily" id="seed-daily-btn">DAILY</button>
+        </div>
+        <div class="header">
+            <div class="counter" id="mine-counter">099</div>
+            <div class="header-controls">
+                <button class="solve-btn" id="solve-btn">D</button>
+                <button class="solve-btn" id="solve-btn-2">E</button>
+                <button class="reset-btn" id="reset-btn">🙂</button>
+                <button class="undo-btn" id="undo-btn">UNDO</button>
+            </div>
+            <div class="counter" id="timer">000</div>
+        </div>
+        <div class="grid-container">
+            <div class="grid" id="grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // API CONFIGURATION
+        // ============================================
+        // Replace with your actual API endpoint after deployment
+        const API_URL = ''; // e.g., 'https://abc123.execute-api.eu-west-2.amazonaws.com/dev'
+        
+        // Get or create device ID for tracking personal bests
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('minesweeper_device_id');
+            if (!deviceId) {
+                deviceId = crypto.randomUUID();
+                localStorage.setItem('minesweeper_device_id', deviceId);
+            }
+            return deviceId;
+        }
+        
+        // Get saved nickname
+        function getSavedNickname() {
+            return localStorage.getItem('minesweeper_nickname') || '';
+        }
+        
+        // Save nickname
+        function saveNickname(nickname) {
+            localStorage.setItem('minesweeper_nickname', nickname);
+        }
+
+        // Game configuration (Advanced mode)
+        const COLS = 30;
+        const ROWS = 16;
+        const MINES = 99;
+
+        // Game state
+        let grid = [];
+        let revealed = [];
+        let flagged = [];
+        let gameOver = false;
+        let gameWon = false;
+        let timerInterval = null;
+        let seconds = 0;
+        let firstClick = true;
+        let history = []; // History for undo functionality
+
+        // Seed and replay state
+        let currentSeed = null;
+        let seededRng = null;
+        let gameStartTime = null;
+        let moveHistory = []; // For replay verification
+        let gameStats = {
+            totalMoves: 0,
+            reveals: 0,
+            flags: 0,
+            unflaggedFlags: 0,
+            hintsUsed: 0,
+            undosUsed: 0
+        };
+
+        // DOM elements
+        const gridElement = document.getElementById('grid');
+        const mineCounter = document.getElementById('mine-counter');
+        const timerDisplay = document.getElementById('timer');
+        const resetBtn = document.getElementById('reset-btn');
+        const undoBtn = document.getElementById('undo-btn');
+        const solveBtn = document.getElementById('solve-btn');
+        const solveBtn2 = document.getElementById('solve-btn-2');
+        const seedDisplay = document.getElementById('seed-display');
+        const seedInput = document.getElementById('seed-input');
+        const seedGoBtn = document.getElementById('seed-go-btn');
+        const seedNewBtn = document.getElementById('seed-new-btn');
+        const seedCopyBtn = document.getElementById('seed-copy-btn');
+        const seedDailyBtn = document.getElementById('seed-daily-btn');
+        
+        // Modal elements
+        const victoryModal = document.getElementById('victory-modal');
+        const modalTime = document.getElementById('modal-time');
+        const modalSeed = document.getElementById('modal-seed');
+        const modalMoves = document.getElementById('modal-moves');
+        const nicknameInput = document.getElementById('nickname-input');
+        const submitScoreBtn = document.getElementById('submit-score-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalMessage = document.getElementById('modal-message');
+        const modalLeaderboard = document.getElementById('modal-leaderboard');
+
+        // ============================================
+        // SEEDED RANDOM NUMBER GENERATOR (mulberry32)
+        // ============================================
+        // Same seed always produces same sequence
+        function createSeededRng(seed) {
+            // Ensure seed is a 32-bit integer
+            seed = seed >>> 0;
+            return function() {
+                seed = (seed + 0x6D2B79F5) | 0;
+                let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        // Generate a random seed (1-999999)
+        function generateRandomSeed() {
+            return Math.floor(Math.random() * 999999) + 1;
+        }
+
+        // ============================================
+        // MOVE RECORDING FOR REPLAY VERIFICATION
+        // ============================================
+        function recordMove(type, row, col, extraData = {}) {
+            if (!gameStartTime) return;
+            
+            const timestamp = Date.now() - gameStartTime;
+            moveHistory.push({
+                t: timestamp,
+                type: type, // 'reveal', 'flag', 'unflag', 'chord', 'hint_d', 'hint_e', 'undo'
+                r: row,
+                c: col,
+                ...extraData
+            });
+            
+            // Update stats
+            gameStats.totalMoves++;
+            if (type === 'reveal' || type === 'chord') gameStats.reveals++;
+            if (type === 'flag') gameStats.flags++;
+            if (type === 'unflag') gameStats.unflaggedFlags++;
+            if (type === 'hint_d' || type === 'hint_e') gameStats.hintsUsed++;
+            if (type === 'undo') gameStats.undosUsed++;
+        }
+
+        // Get complete game data for API submission
+        function getGameData() {
+            return {
+                seed: currentSeed,
+                finalTime: seconds * 1000, // milliseconds
+                moves: moveHistory,
+                stats: { ...gameStats },
+                config: {
+                    cols: COLS,
+                    rows: ROWS,
+                    mines: MINES
+                },
+                won: gameWon,
+                timestamp: Date.now()
+            };
+        }
+
+        // Save current game state to history
+        function saveState() {
+            // Deep copy arrays
+            const gridCopy = grid.map(row => [...row]);
+            const revealedCopy = revealed.map(row => [...row]);
+            const flaggedCopy = flagged.map(row => [...row]);
+            
+            history.push({
+                grid: gridCopy,
+                revealed: revealedCopy,
+                flagged: flaggedCopy,
+                gameOver: gameOver,
+                gameWon: gameWon,
+                seconds: seconds,
+                firstClick: firstClick
+            });
+            
+            // Limit history to prevent memory issues (keep last 100 states)
+            if (history.length > 100) {
+                history.shift();
+            }
+            
+            updateUndoButton();
+        }
+
+        // Restore game state from history
+        function undo() {
+            if (history.length === 0) return;
+            
+            // Record the undo (for replay verification)
+            if (gameStartTime) {
+                recordMove('undo', -1, -1);
+            }
+            
+            // Stop timer first to prevent conflicts
+            stopTimer();
+            
+            const state = history.pop();
+            
+            // Restore arrays
+            grid = state.grid.map(row => [...row]);
+            revealed = state.revealed.map(row => [...row]);
+            flagged = state.flagged.map(row => [...row]);
+            
+            // Restore game state
+            gameOver = state.gameOver;
+            gameWon = state.gameWon;
+            seconds = state.seconds;
+            firstClick = state.firstClick;
+            
+            // Restore timer display
+            timerDisplay.textContent = String(seconds).padStart(3, '0');
+            
+            // Restore timer if game was in progress
+            if (!gameOver && !gameWon && !firstClick) {
+                startTimer();
+            }
+            
+            // Restore UI elements
+            if (gameOver) {
+                resetBtn.textContent = '😵';
+                document.querySelector('.game-container').classList.add('game-over');
+            } else if (gameWon) {
+                resetBtn.textContent = '😎';
+                document.querySelector('.game-container').classList.add('victory');
+            } else {
+                resetBtn.textContent = '🙂';
+                document.querySelector('.game-container').classList.remove('game-over', 'victory');
+            }
+            
+            // Update all cells
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    updateCell(row, col);
+                }
+            }
+            
+            updateMineCounter();
+            updateUndoButton();
+        }
+
+        // Update undo button state
+        function updateUndoButton() {
+            undoBtn.disabled = history.length === 0;
+        }
+
+        // Initialize the game with optional seed
+        function initGame(seed = null) {
+            // Reset state
+            grid = [];
+            revealed = [];
+            flagged = [];
+            gameOver = false;
+            gameWon = false;
+            firstClick = true;
+            seconds = 0;
+            history = [];
+            
+            // Reset replay/stats state
+            moveHistory = [];
+            gameStartTime = null;
+            gameStats = {
+                totalMoves: 0,
+                reveals: 0,
+                flags: 0,
+                unflaggedFlags: 0,
+                hintsUsed: 0,
+                undosUsed: 0
+            };
+            
+            // Set up seed and RNG
+            currentSeed = seed !== null ? seed : generateRandomSeed();
+            seededRng = createSeededRng(currentSeed);
+            seedDisplay.textContent = String(currentSeed).padStart(6, '0');
+            seedInput.value = '';
+            
+            // Clear timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Reset displays
+            timerDisplay.textContent = '000';
+            mineCounter.textContent = String(MINES).padStart(3, '0');
+            resetBtn.textContent = '🙂';
+            
+            // Remove game over/victory classes
+            document.querySelector('.game-container').classList.remove('game-over', 'victory');
+            
+            // Initialize arrays
+            for (let row = 0; row < ROWS; row++) {
+                grid[row] = [];
+                revealed[row] = [];
+                flagged[row] = [];
+                for (let col = 0; col < COLS; col++) {
+                    grid[row][col] = 0; // 0 = empty, -1 = mine
+                    revealed[row][col] = false;
+                    flagged[row][col] = false;
+                }
+            }
+            
+            // Render grid
+            renderGrid();
+            updateUndoButton();
+        }
+
+        // Place mines using seeded RNG (deterministic for same seed + safe zone)
+        // Note: The safe zone affects placement, so same seed + different first click = different map
+        // For truly reproducible maps, we place mines first then ensure safe zone after
+        function placeMines(safeRow, safeCol) {
+            // Reset RNG to ensure deterministic placement from seed
+            seededRng = createSeededRng(currentSeed);
+            
+            // First, place all mines randomly using seeded RNG
+            let minesPlaced = 0;
+            const minePositions = [];
+            
+            while (minesPlaced < MINES) {
+                const row = Math.floor(seededRng() * ROWS);
+                const col = Math.floor(seededRng() * COLS);
+                
+                // Check if position already has a mine
+                const alreadyMined = minePositions.some(p => p.row === row && p.col === col);
+                
+                if (!alreadyMined) {
+                    minePositions.push({ row, col });
+                    minesPlaced++;
+                }
+            }
+            
+            // Now place mines, but move any that are in the safe zone
+            for (const pos of minePositions) {
+                const isSafeZone = Math.abs(pos.row - safeRow) <= 1 && Math.abs(pos.col - safeCol) <= 1;
+                
+                if (isSafeZone) {
+                    // Find a new position for this mine (outside safe zone)
+                    let moved = false;
+                    for (let r = 0; r < ROWS && !moved; r++) {
+                        for (let c = 0; c < COLS && !moved; c++) {
+                            const inSafeZone = Math.abs(r - safeRow) <= 1 && Math.abs(c - safeCol) <= 1;
+                            if (!inSafeZone && grid[r][c] !== -1) {
+                                grid[r][c] = -1;
+                                moved = true;
+                            }
+                        }
+                    }
+                } else {
+                    grid[pos.row][pos.col] = -1;
+                }
+            }
+            
+            // Calculate adjacent mine counts
+            calculateAdjacentCounts();
+        }
+
+        // Calculate adjacent mine counts for all cells
+        function calculateAdjacentCounts() {
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (grid[row][col] === -1) continue;
+                    
+                    let count = 0;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                                if (grid[newRow][newCol] === -1) count++;
+                            }
+                        }
+                    }
+                    grid[row][col] = count;
+                }
+            }
+        }
+
+        // Render the grid
+        function renderGrid() {
+            gridElement.innerHTML = '';
+            
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    cell.addEventListener('click', () => handleClick(row, col));
+                    cell.addEventListener('dblclick', () => handleDoubleClick(row, col));
+                    cell.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleRightClick(row, col);
+                    });
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        // Update cell display
+        function updateCell(row, col) {
+            const index = row * COLS + col;
+            const cell = gridElement.children[index];
+            
+            if (revealed[row][col]) {
+                cell.classList.add('revealed');
+                cell.classList.remove('flagged');
+                
+                if (grid[row][col] === -1) {
+                    cell.textContent = '💣';
+                    cell.classList.add('mine');
+                } else {
+                    cell.classList.remove('mine');
+                    if (grid[row][col] > 0) {
+                        cell.textContent = grid[row][col];
+                        cell.dataset.number = grid[row][col];
+                    } else {
+                        cell.textContent = '';
+                    }
+                }
+            } else if (flagged[row][col]) {
+                cell.classList.add('flagged');
+                cell.classList.remove('revealed', 'mine');
+                cell.textContent = '🚩';
+            } else {
+                cell.classList.remove('flagged', 'revealed', 'mine');
+                cell.textContent = '';
+                delete cell.dataset.number;
+            }
+        }
+
+        // Handle left click
+        function handleClick(row, col) {
+            if (gameOver || gameWon) return;
+            if (flagged[row][col]) return;
+            if (revealed[row][col]) return;
+            
+            // Save state before making move
+            saveState();
+            
+            // First click - place mines and start timer
+            if (firstClick) {
+                firstClick = false;
+                gameStartTime = Date.now(); // Start recording time
+                placeMines(row, col);
+                startTimer();
+            }
+            
+            // Record the move
+            recordMove('reveal', row, col);
+            
+            // Check if mine
+            if (grid[row][col] === -1) {
+                // Game over
+                gameOver = true;
+                resetBtn.textContent = '😵';
+                document.querySelector('.game-container').classList.add('game-over');
+                revealAllMines();
+                stopTimer();
+                console.log('Game Over! Game data:', getGameData());
+                return;
+            }
+            
+            // Reveal cell
+            revealCell(row, col);
+            
+            // Check for win
+            checkWin();
+        }
+
+        // Handle double click (chord - reveal adjacent if flags match number)
+        function handleDoubleClick(row, col) {
+            if (gameOver || gameWon) return;
+            if (!revealed[row][col]) return;
+            if (grid[row][col] <= 0) return; // Must be a number cell
+            
+            // Count adjacent flags
+            let adjacentFlags = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                        if (flagged[newRow][newCol]) adjacentFlags++;
+                    }
+                }
+            }
+            
+            // If flags match the number, reveal all unflagged adjacent cells
+            if (adjacentFlags === grid[row][col]) {
+                // Save state before making move
+                saveState();
+                
+                // Record the chord move
+                recordMove('chord', row, col);
+                
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const newRow = row + dr;
+                        const newCol = col + dc;
+                        if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                            if (!revealed[newRow][newCol] && !flagged[newRow][newCol]) {
+                                // Check if it's a mine (game over)
+                                if (grid[newRow][newCol] === -1) {
+                                    gameOver = true;
+                                    resetBtn.textContent = '😵';
+                                    document.querySelector('.game-container').classList.add('game-over');
+                                    revealed[newRow][newCol] = true;
+                                    updateCell(newRow, newCol);
+                                    revealAllMines();
+                                    stopTimer();
+                                    console.log('Game Over! Game data:', getGameData());
+                                    return;
+                                }
+                                revealCell(newRow, newCol);
+                            }
+                        }
+                    }
+                }
+                checkWin();
+            }
+        }
+
+        // Reveal a cell (with flood fill for empty cells)
+        function revealCell(row, col) {
+            if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+            if (revealed[row][col]) return;
+            if (flagged[row][col]) return;
+            if (grid[row][col] === -1) return;
+            
+            revealed[row][col] = true;
+            updateCell(row, col);
+            
+            // Flood fill if empty cell
+            if (grid[row][col] === 0) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        revealCell(row + dr, col + dc);
+                    }
+                }
+            }
+        }
+
+        // Handle right click (flagging)
+        function handleRightClick(row, col) {
+            if (gameOver || gameWon) return;
+            if (revealed[row][col]) return;
+            
+            // Save state before making move
+            saveState();
+            
+            // Record the flag/unflag move (only if game has started)
+            if (gameStartTime) {
+                if (flagged[row][col]) {
+                    recordMove('unflag', row, col);
+                } else {
+                    recordMove('flag', row, col);
+                }
+            }
+            
+            flagged[row][col] = !flagged[row][col];
+            updateCell(row, col);
+            updateMineCounter();
+        }
+
+        // Update mine counter
+        function updateMineCounter() {
+            let flagCount = 0;
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (flagged[row][col]) flagCount++;
+                }
+            }
+            const remaining = MINES - flagCount;
+            mineCounter.textContent = String(Math.max(0, remaining)).padStart(3, '0');
+        }
+
+        // Reveal all mines (game over)
+        function revealAllMines() {
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (grid[row][col] === -1) {
+                        revealed[row][col] = true;
+                        updateCell(row, col);
+                    }
+                }
+            }
+        }
+
+        // Check for win condition
+        function checkWin() {
+            let revealedCount = 0;
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (revealed[row][col]) revealedCount++;
+                }
+            }
+            
+            // Win if all non-mine cells are revealed
+            if (revealedCount === (ROWS * COLS - MINES)) {
+                gameWon = true;
+                resetBtn.textContent = '😎';
+                document.querySelector('.game-container').classList.add('victory');
+                stopTimer();
+                
+                // Auto-flag remaining mines
+                for (let row = 0; row < ROWS; row++) {
+                    for (let col = 0; col < COLS; col++) {
+                        if (grid[row][col] === -1 && !flagged[row][col]) {
+                            flagged[row][col] = true;
+                            updateCell(row, col);
+                        }
+                    }
+                }
+                updateMineCounter();
+                
+                // Log game data for submission
+                const gameData = getGameData();
+                console.log('Victory! Game data ready for submission:', gameData);
+                console.log('Seed:', currentSeed, '| Time:', seconds, 'seconds | Moves:', gameStats.totalMoves);
+                
+                // Show victory modal after a brief delay
+                setTimeout(showVictoryModal, 500);
+            }
+        }
+
+        // Timer functions
+        function startTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                seconds++;
+                if (seconds > 999) seconds = 999;
+                timerDisplay.textContent = String(seconds).padStart(3, '0');
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // Auto-solve step 1: Flag cells where remaining mines equals hidden unflagged cells
+        function autoSolveStep1() {
+            if (gameOver || gameWon) return;
+            if (firstClick) return; // Can't solve before first click
+            
+            // Save state before making changes
+            saveState();
+            
+            // Record hint usage
+            if (gameStartTime) {
+                recordMove('hint_d', -1, -1);
+            }
+            
+            let madeChanges = false;
+            
+            // Flag cells where remaining mines equals hidden unflagged cells
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (!revealed[row][col]) continue;
+                    if (grid[row][col] <= 0) continue; // Must be a number cell
+                    
+                    // Count adjacent flags and hidden unflagged cells
+                    let adjacentFlags = 0;
+                    let hiddenUnflaggedCount = 0;
+                    const hiddenUnflaggedCells = [];
+                    
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                                if (flagged[newRow][newCol]) {
+                                    adjacentFlags++;
+                                } else if (!revealed[newRow][newCol]) {
+                                    hiddenUnflaggedCount++;
+                                    hiddenUnflaggedCells.push({ row: newRow, col: newCol });
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Remaining mines = number on cell minus already flagged
+                    const remainingMines = grid[row][col] - adjacentFlags;
+                    
+                    // If remaining mines equals hidden unflagged cells, flag them all
+                    if (remainingMines === hiddenUnflaggedCount && hiddenUnflaggedCount > 0) {
+                        for (const cell of hiddenUnflaggedCells) {
+                            flagged[cell.row][cell.col] = true;
+                            updateCell(cell.row, cell.col);
+                            madeChanges = true;
+                        }
+                    }
+                }
+            }
+            
+            if (madeChanges) {
+                updateMineCounter();
+                checkWin();
+            }
+        }
+
+        // Auto-solve step 2: Reveal cells where number equals adjacent flags
+        function autoSolveStep2() {
+            if (gameOver || gameWon) return;
+            if (firstClick) return; // Can't solve before first click
+            
+            // Save state before making changes
+            saveState();
+            
+            // Record hint usage
+            if (gameStartTime) {
+                recordMove('hint_e', -1, -1);
+            }
+            
+            let madeChanges = false;
+            
+            // Reveal cells where number equals adjacent flags
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (!revealed[row][col]) continue;
+                    if (grid[row][col] <= 0) continue; // Must be a number cell
+                    
+                    // Count adjacent flags
+                    let adjacentFlags = 0;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                                if (flagged[newRow][newCol]) adjacentFlags++;
+                            }
+                        }
+                    }
+                    
+                    // If flags match the number, reveal all unflagged adjacent cells
+                    if (adjacentFlags === grid[row][col]) {
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                                    if (!revealed[newRow][newCol] && !flagged[newRow][newCol]) {
+                                        // Check if it's a mine (game over)
+                                        if (grid[newRow][newCol] === -1) {
+                                            gameOver = true;
+                                            resetBtn.textContent = '😵';
+                                            document.querySelector('.game-container').classList.add('game-over');
+                                            revealed[newRow][newCol] = true;
+                                            updateCell(newRow, newCol);
+                                            revealAllMines();
+                                            stopTimer();
+                                            updateMineCounter();
+                                            return;
+                                        }
+                                        revealCell(newRow, newCol);
+                                        madeChanges = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (madeChanges) {
+                updateMineCounter();
+                checkWin();
+            }
+        }
+
+        // Reset button click (replay same seed)
+        resetBtn.addEventListener('click', () => initGame(currentSeed));
+
+        // Undo button click
+        undoBtn.addEventListener('click', undo);
+
+        // Solve button clicks
+        solveBtn.addEventListener('click', autoSolveStep1);
+        solveBtn2.addEventListener('click', autoSolveStep2);
+
+        // Seed control buttons
+        seedNewBtn.addEventListener('click', () => initGame()); // New random seed
+        
+        seedGoBtn.addEventListener('click', () => {
+            const inputSeed = parseInt(seedInput.value, 10);
+            if (!isNaN(inputSeed) && inputSeed > 0) {
+                initGame(inputSeed);
+            } else {
+                alert('Please enter a valid seed number (positive integer)');
+            }
+        });
+        
+        seedInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                seedGoBtn.click();
+            }
+        });
+        
+        seedCopyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(String(currentSeed)).then(() => {
+                const originalText = seedCopyBtn.textContent;
+                seedCopyBtn.textContent = '✓';
+                setTimeout(() => {
+                    seedCopyBtn.textContent = originalText;
+                }, 1000);
+            }).catch(err => {
+                console.error('Failed to copy seed:', err);
+                // Fallback for older browsers
+                seedInput.value = currentSeed;
+                seedInput.select();
+                document.execCommand('copy');
+            });
+        });
+
+        // Daily challenge button
+        seedDailyBtn.addEventListener('click', async () => {
+            if (API_URL) {
+                try {
+                    const response = await fetch(`${API_URL}/daily`);
+                    const data = await response.json();
+                    if (data.seed) {
+                        initGame(data.seed);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch daily seed:', error);
+                    // Fallback: generate deterministic seed from date
+                    const today = new Date().toISOString().split('T')[0];
+                    const fallbackSeed = hashDateToSeed(today);
+                    initGame(fallbackSeed);
+                }
+            } else {
+                // No API configured, use local daily seed
+                const today = new Date().toISOString().split('T')[0];
+                const dailySeed = hashDateToSeed(today);
+                initGame(dailySeed);
+            }
+        });
+
+        // Hash date to seed (for daily challenge fallback)
+        function hashDateToSeed(dateString) {
+            let hash = 0;
+            const str = 'minesweeper-daily-' + dateString;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return (Math.abs(hash) % 999999) + 1;
+        }
+
+        // ============================================
+        // VICTORY MODAL & API INTEGRATION
+        // ============================================
+        
+        // Show victory modal
+        function showVictoryModal() {
+            // Populate modal
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            modalTime.textContent = minutes > 0 
+                ? `${minutes}:${secs.toString().padStart(2, '0')}` 
+                : `${secs} seconds`;
+            modalSeed.textContent = currentSeed;
+            modalMoves.textContent = gameStats.totalMoves;
+            
+            // Pre-fill nickname
+            nicknameInput.value = getSavedNickname();
+            
+            // Reset modal state
+            submitScoreBtn.disabled = false;
+            modalMessage.style.display = 'none';
+            modalLeaderboard.style.display = 'none';
+            
+            // Show modal
+            victoryModal.classList.add('visible');
+            nicknameInput.focus();
+        }
+
+        // Hide victory modal
+        function hideVictoryModal() {
+            victoryModal.classList.remove('visible');
+        }
+
+        // Format time for display
+        function formatTimeDisplay(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            const millis = ms % 1000;
+            
+            if (minutes > 0) {
+                return `${minutes}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(3, '0')}`;
+            }
+            return `${secs}.${millis.toString().padStart(3, '0')}s`;
+        }
+
+        // Submit score to API
+        async function submitScore() {
+            const nickname = nicknameInput.value.trim();
+            
+            if (!nickname) {
+                showModalMessage('Please enter a nickname', 'error');
+                return;
+            }
+            
+            if (!API_URL) {
+                showModalMessage('API not configured. Score saved locally only.', 'error');
+                console.log('Game data for manual submission:', getGameData());
+                return;
+            }
+            
+            // Save nickname for next time
+            saveNickname(nickname);
+            
+            // Disable submit button
+            submitScoreBtn.disabled = true;
+            submitScoreBtn.textContent = 'Submitting...';
+            
+            try {
+                const gameData = getGameData();
+                const response = await fetch(`${API_URL}/scores`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...gameData,
+                        nickname: nickname,
+                        deviceId: getDeviceId()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    if (result.isPersonalBest) {
+                        showModalMessage(`🎉 Rank #${result.rank}! Personal best!`, 'success');
+                    } else {
+                        showModalMessage(`Score recorded. Your best: ${formatTimeDisplay(result.personalBest)}`, 'success');
+                    }
+                    
+                    // Fetch and show leaderboard
+                    fetchAndShowLeaderboard(currentSeed, result.rank);
+                } else {
+                    showModalMessage(result.error || 'Failed to submit score', 'error');
+                    submitScoreBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error submitting score:', error);
+                showModalMessage('Network error. Please try again.', 'error');
+                submitScoreBtn.disabled = false;
+            }
+            
+            submitScoreBtn.textContent = 'Submit Score';
+        }
+
+        // Show message in modal
+        function showModalMessage(message, type) {
+            modalMessage.textContent = message;
+            modalMessage.className = `modal-message ${type}`;
+            modalMessage.style.display = 'block';
+        }
+
+        // Fetch and display leaderboard
+        async function fetchAndShowLeaderboard(seed, highlightRank = null) {
+            if (!API_URL) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/leaderboard/${seed}?limit=10`);
+                const data = await response.json();
+                
+                if (data.leaderboard && data.leaderboard.length > 0) {
+                    modalLeaderboard.innerHTML = data.leaderboard.map(entry => `
+                        <div class="leaderboard-row ${entry.rank === highlightRank ? 'highlight' : ''}">
+                            <span class="leaderboard-rank">#${entry.rank}</span>
+                            <span class="leaderboard-name">${escapeHtml(entry.nickname)}</span>
+                            <span class="leaderboard-time">${entry.timeFormatted}</span>
+                        </div>
+                    `).join('');
+                    modalLeaderboard.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error fetching leaderboard:', error);
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal event listeners
+        submitScoreBtn.addEventListener('click', submitScore);
+        
+        closeModalBtn.addEventListener('click', hideVictoryModal);
+        
+        nicknameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitScore();
+            }
+        });
+        
+        // Close modal on overlay click
+        victoryModal.addEventListener('click', (e) => {
+            if (e.target === victoryModal) {
+                hideVictoryModal();
+            }
+        });
+
+        // Initialize game on load with random seed
+        initGame();
+    </script>
+</body>
+</html>
+

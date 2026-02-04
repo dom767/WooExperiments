@@ -1,0 +1,116 @@
+service: minesweeper-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: eu-west-2
+  stage: ${opt:stage, 'dev'}
+  environment:
+    LEADERBOARD_TABLE: ${self:service}-leaderboard-${sls:stage}
+    SCORES_TABLE: ${self:service}-scores-${sls:stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - !GetAtt LeaderboardTable.Arn
+            - !Sub "${LeaderboardTable.Arn}/index/*"
+            - !GetAtt ScoresTable.Arn
+            - !Sub "${ScoresTable.Arn}/index/*"
+
+functions:
+  submitScore:
+    handler: src/handlers/submitScore.handler
+    timeout: 10
+    events:
+      - http:
+          path: /scores
+          method: post
+          cors: true
+
+  getLeaderboard:
+    handler: src/handlers/getLeaderboard.handler
+    timeout: 5
+    events:
+      - http:
+          path: /leaderboard/{seed}
+          method: get
+          cors: true
+
+  getPersonalBests:
+    handler: src/handlers/getPersonalBests.handler
+    timeout: 5
+    events:
+      - http:
+          path: /personal/{deviceId}
+          method: get
+          cors: true
+
+  getDailySeed:
+    handler: src/handlers/getDailySeed.handler
+    timeout: 5
+    events:
+      - http:
+          path: /daily
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    LeaderboardTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.LEADERBOARD_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: seed
+            AttributeType: N
+          - AttributeName: time
+            AttributeType: N
+          - AttributeName: deviceId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: seed
+            KeyType: HASH
+          - AttributeName: time
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: device-seed-index
+            KeySchema:
+              - AttributeName: deviceId
+                KeyType: HASH
+              - AttributeName: seed
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    ScoresTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.SCORES_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+
+  Outputs:
+    ApiEndpoint:
+      Description: API Gateway endpoint URL
+      Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}"
+

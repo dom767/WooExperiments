@@ -1,0 +1,31 @@
+{
+  "name": "minesweeper-backend",
+  "version": "1.0.0",
+  "description": "Minesweeper leaderboard API with replay verification",
+  "main": "src/handlers/submitScore.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:prod": "serverless deploy --stage prod",
+    "remove": "serverless remove",
+    "logs:submit": "serverless logs -f submitScore -t",
+    "logs:leaderboard": "serverless logs -f getLeaderboard -t",
+    "test": "node test/testVerifier.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.490.0",
+    "@aws-sdk/lib-dynamodb": "^3.490.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0"
+  },
+  "keywords": [
+    "minesweeper",
+    "leaderboard",
+    "aws",
+    "lambda",
+    "dynamodb"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

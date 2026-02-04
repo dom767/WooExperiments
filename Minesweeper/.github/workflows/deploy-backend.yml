@@ -1,0 +1,68 @@
+name: Deploy Minesweeper Backend
+
+on:
+  # Manual trigger - one-click deployment from GitHub UI
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment stage'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+  # Optional: Auto-deploy on push to main (comment out if you only want manual)
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+  #   paths:
+  #     - 'backend/**'
+
+jobs:
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Deploy to AWS
+        run: serverless deploy --stage ${{ github.event.inputs.stage || 'dev' }}
+
+      - name: Get API endpoint
+        run: |
+          echo "## 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stage:** ${{ github.event.inputs.stage || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### API Endpoints" >> $GITHUB_STEP_SUMMARY
+          serverless info --stage ${{ github.event.inputs.stage || 'dev' }} | grep -E "(POST|GET|endpoints)" >> $GITHUB_STEP_SUMMARY || true
+
