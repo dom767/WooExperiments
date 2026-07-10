@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Highpersonic 3 | Baffled Cat</title>
+  <meta name="description" content="Highpersonic 3 is an audio visualiser loosely based on the original Highpersonic released in 1998.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .app-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .app-logo-link {
+      display: block;
+      width: min(240px, 60vw);
+      margin-bottom: 1.25rem;
+      text-decoration: none;
+    }
+
+    .app-logo {
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .app-logo-link:hover .app-logo {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .app-hero .eyebrow { margin-bottom: 0.75rem; }
+
+    .app-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.9rem, 5vw, 2.4rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 1.1rem;
+    }
+
+    .email-me-btn {
+      font: inherit;
+      font-weight: 600;
+      color: var(--accent-teal);
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .email-me-btn:hover { color: var(--accent-amber); }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(10, 8, 5, 0.6);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.is-open { display: flex; }
+
+    .modal {
+      width: min(480px, 100%);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: clamp(22px, 4vw, 28px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal h2 {
+      font-family: var(--font-display);
+      margin: 0 0 6px;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-intro {
+      color: var(--text-muted);
+      margin: 0 0 18px;
+      font-size: 0.95rem;
+    }
+
+    .field { margin-bottom: 14px; }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      font: inherit;
+      font-weight: 400;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.75rem;
+    }
+
+    .field textarea { min-height: 120px; resize: vertical; }
+
+    .field input:focus,
+    .field textarea:focus {
+      outline: 2px solid var(--accent-amber-soft);
+      border-color: var(--accent-amber);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    .modal-btn {
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1.1rem;
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+      background: transparent;
+      color: var(--text);
+    }
+
+    .modal-btn-primary {
+      background: var(--accent-amber);
+      color: #1c1812;
+      border-color: var(--accent-amber);
+    }
+
+    .modal-btn:hover { opacity: 0.85; }
+
+    .form-status {
+      margin: 12px 0 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .form-status.error { color: #e0836f; }
+
+    .modal-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .hp-field {
+      position: absolute;
+      left: -9999px;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a class="nav-brand" href="index.html">
+      <img src="cat_only.png" alt="">
+      Baffled Cat
+    </a>
+    <div class="nav-links">
+      <a href="index.html#projects" class="is-active">Projects</a>
+      <a href="about.html">About</a>
+    </div>
+  </nav>
+
+  <main class="page-shell">
+    <a class="back-link" href="index.html">← Back to Baffled Cat</a>
+    <section class="page-card">
+      <header class="app-hero">
+        <a class="app-logo-link" href="highpersonic3/index.html">
+          <div class="app-logo">
+            <img src="highpersonic3.jpg" alt="Highpersonic 3">
+          </div>
+        </a>
+        <span class="eyebrow">Live · Web</span>
+        <h1>Highpersonic 3</h1>
+        <a class="btn btn-primary" href="highpersonic3/index.html">Launch</a>
+      </header>
+
+      <p>Highpersonic 3 is an audio visualiser loosely based on the original Highpersonic released in 1998.</p>
+      <p>Launch the application and attach an audio source to visualise audio in the browser.</p>
+      <p>Highpersonic 3 is free for non-commercial use. If you'd like to use it in a commercial setting, please <button type="button" class="email-me-btn" id="email-me-btn">email me</button>.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 Baffled Cat</span>
+    <nav>
+      <a href="about.html">About</a>
+      <a href="privacy.html">Privacy</a>
+    </nav>
+  </footer>
+
+  <div class="modal-overlay" id="contact-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="contact-modal-title" aria-modal="true">
+      <h2 id="contact-modal-title">Commercial licensing</h2>
+      <p class="modal-intro">Send a message about using Highpersonic 3 commercially.</p>
+      <form id="contact-form" novalidate>
+        <div class="hp-field" aria-hidden="true">
+          <label for="contact-company">Company</label>
+          <input type="text" id="contact-company" name="company" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="contact-name">Your name</label>
+          <input type="text" id="contact-name" name="name" required autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="contact-email">Your email</label>
+          <input type="email" id="contact-email" name="email" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="contact-message">Message</label>
+          <textarea id="contact-message" name="message" required placeholder="Tell us about your commercial use case…"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="modal-btn" id="contact-cancel">Cancel</button>
+          <button type="submit" class="modal-btn modal-btn-primary">Send</button>
+        </div>
+        <p class="form-status" id="form-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modal = document.getElementById('contact-modal');
+      var openBtn = document.getElementById('email-me-btn');
+      var cancelBtn = document.getElementById('contact-cancel');
+      var form = document.getElementById('contact-form');
+      var statusEl = document.getElementById('form-status');
+      var nameInput = document.getElementById('contact-name');
+      var submitBtn = form.querySelector('button[type="submit"]');
+      var honeypot = document.getElementById('contact-company');
+
+      var CONTACT_API = (function () {
+        var host = location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1' || host === '') {
+          return 'https://dev.baffledcat.com/contact';
+        }
+        return 'https://api.baffledcat.com/contact';
+      })();
+
+      function openModal() {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        nameInput.focus();
+      }
+
+      function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.classList.remove('error');
+      }
+
+      openBtn.addEventListener('click', openModal);
+      cancelBtn.addEventListener('click', closeModal);
+
+      modal.addEventListener('click', function (event) {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+          closeModal();
+        }
+      });
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        if (honeypot.value) {
+          return;
+        }
+
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+        }
+
+        var payload = {
+          name: document.getElementById('contact-name').value.trim(),
+          email: document.getElementById('contact-email').value.trim(),
+          message: document.getElementById('contact-message').value.trim(),
+          subject: 'Highpersonic3 : Contact',
+          company: honeypot.value
+        };
+
+        submitBtn.disabled = true;
+        statusEl.hidden = true;
+        statusEl.classList.remove('error');
+
+        fetch(CONTACT_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+              if (!res.ok) {
+                throw new Error(data.error || 'Failed to send message');
+              }
+              return data;
+            });
+          })
+          .then(function () {
+            form.reset();
+            statusEl.hidden = false;
+            statusEl.textContent = 'Message sent. We\'ll get back to you soon.';
+            setTimeout(closeModal, 2500);
+          })
+          .catch(function (err) {
+            statusEl.hidden = false;
+            statusEl.classList.add('error');
+            statusEl.textContent = err.message || 'Failed to send message. Please try again later.';
+          })
+          .finally(function () {
+            submitBtn.disabled = false;
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

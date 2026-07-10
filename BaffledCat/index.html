@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baffled Cat</title>
+  <meta name="description" content="Baffled Cat — a small independent studio making games and audio-visual tools.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Play the splash once per tab session; skip it on repeat visits to the
+    // homepage within the same session (e.g. navigating back from a child page).
+    (function () {
+      try {
+        if (sessionStorage.getItem('bc-intro-seen')) {
+          document.documentElement.classList.add('no-intro');
+        } else {
+          sessionStorage.setItem('bc-intro-seen', '1');
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    /* ---------- Background lattice ---------- */
+
+    /* body needs its own stacking context so the canvas's negative z-index
+       sits behind body's own background instead of behind the whole page. */
+    body { position: relative; }
+
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ---------- Intro splash ---------- */
+    /* Matches the Baffled Cat intro used across our apps (see highpersonic3):
+       white screen, cat + wordmark fade in together, letters pop in one by one,
+       then "presents..." finishes the sequence in a smaller weight. */
+
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      animation: introToBrown 0.9s ease-in-out 2.0s forwards,
+                 introFadeOut 0.6s ease-in 2.9s forwards;
+    }
+
+    .intro-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 1.5rem;
+      will-change: filter, opacity;
+      animation: introBlurOut 0.9s ease-in 2.0s forwards;
+    }
+
+    .intro-cat {
+      width: clamp(180px, 30vh, 360px);
+      height: auto;
+      object-fit: contain;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: introTextReveal 0.6s ease-out 0.3s forwards;
+    }
+
+    .intro-logo {
+      font-family: var(--font-brand);
+      font-weight: 700;
+      font-size: clamp(3rem, 12vw, 6rem);
+      color: #1a1a1a;
+      letter-spacing: -0.02em;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: introTextReveal 0.6s ease-out 0.3s forwards;
+      margin-top: 1.1rem;
+      text-align: center;
+      text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.05);
+      line-height: 1.05;
+    }
+
+    .intro-logo .word { white-space: nowrap; display: inline-block; }
+
+    .intro-letter {
+      display: inline-block;
+      opacity: 0;
+      animation: introLetterPop 0.5s ease-out forwards;
+    }
+
+    .intro-presents {
+      display: block;
+      font-size: clamp(1.1rem, 4.5vw, 1.75rem);
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    .word-baffled .intro-letter:nth-child(1) { animation-delay: 0.30s; }
+    .word-baffled .intro-letter:nth-child(2) { animation-delay: 0.35s; }
+    .word-baffled .intro-letter:nth-child(3) { animation-delay: 0.40s; }
+    .word-baffled .intro-letter:nth-child(4) { animation-delay: 0.45s; }
+    .word-baffled .intro-letter:nth-child(5) { animation-delay: 0.50s; }
+    .word-baffled .intro-letter:nth-child(6) { animation-delay: 0.55s; }
+    .word-baffled .intro-letter:nth-child(7) { animation-delay: 0.60s; }
+    .word-cat .intro-letter:nth-child(1) { animation-delay: 0.65s; }
+    .word-cat .intro-letter:nth-child(2) { animation-delay: 0.70s; }
+    .word-cat .intro-letter:nth-child(3) { animation-delay: 0.75s; }
+    .intro-presents .intro-letter:nth-child(1) { animation-delay: 0.80s; }
+    .intro-presents .intro-letter:nth-child(2) { animation-delay: 0.85s; }
+    .intro-presents .intro-letter:nth-child(3) { animation-delay: 0.90s; }
+    .intro-presents .intro-letter:nth-child(4) { animation-delay: 0.95s; }
+    .intro-presents .intro-letter:nth-child(5) { animation-delay: 1.00s; }
+    .intro-presents .intro-letter:nth-child(6) { animation-delay: 1.05s; }
+    .intro-presents .intro-letter:nth-child(7) { animation-delay: 1.10s; }
+    .intro-presents .intro-letter:nth-child(8) { animation-delay: 1.15s; }
+    .intro-presents .intro-letter:nth-child(9) { animation-delay: 1.20s; }
+    .intro-presents .intro-letter:nth-child(10) { animation-delay: 1.25s; }
+    .intro-presents .intro-letter:nth-child(11) { animation-delay: 1.30s; }
+
+    @keyframes introTextReveal {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes introLetterPop {
+      0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+      60% { opacity: 1; transform: translateY(-3px) scale(1.05); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes introToBrown {
+      0% { background-color: #ffffff; }
+      100% { background-color: var(--bg); }
+    }
+
+    @keyframes introBlurOut {
+      0% { filter: blur(0px); opacity: 1; }
+      100% { filter: blur(32px); opacity: 0; }
+    }
+
+    @keyframes introFadeOut {
+      0% { opacity: 1; visibility: visible; }
+      99.9% { visibility: visible; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    /* ---------- Shared keyframes ---------- */
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---------- Page content ---------- */
+    /* Sits fully formed underneath the splash the whole time. The splash blurs
+       and washes from white to the page's own brown (--bg) before fading away,
+       so the handoff reads as one continuous dissolve rather than a hard cut. */
+
+    .section-head {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: clamp(2.5rem, 6vw, 4rem) clamp(1.25rem, 4vw, 2rem) 0;
+      margin-bottom: 1.75rem;
+    }
+
+    .section-head h2 {
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 4vw, 1.9rem);
+      letter-spacing: -0.02em;
+      margin-top: 0.5rem;
+    }
+
+    .section-head p {
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+
+    .project-grid {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 clamp(1.25rem, 4vw, 2rem);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: clamp(1.1rem, 3vw, 1.5rem);
+    }
+
+    .project-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .project-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-strong);
+    }
+
+    .project-thumb {
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .project-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+
+    .project-card:hover .project-thumb img {
+      transform: scale(1.05);
+    }
+
+    .project-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      padding: 1.3rem 1.4rem 1.5rem;
+      flex: 1;
+    }
+
+    .project-tag {
+      align-self: flex-start;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-teal);
+      background: var(--accent-teal-soft);
+      padding: 0.28rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    .project-body h3 {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      letter-spacing: -0.01em;
+    }
+
+    .project-body p {
+      color: var(--text-muted);
+      font-size: 0.93rem;
+      flex: 1;
+    }
+
+    .project-link {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--accent-amber);
+      margin-top: 0.2rem;
+    }
+
+    main { padding-bottom: 2rem; }
+
+    @media (max-width: 600px) {
+      .nav-links { gap: 1rem; font-size: 0.88rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .intro-overlay, .intro-brand, .intro-cat, .intro-logo, .intro-letter {
+        animation-delay: 0s !important;
+      }
+    }
+
+    html.no-intro .intro-overlay { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <div class="intro-overlay" aria-hidden="true">
+    <div class="intro-brand">
+      <img class="intro-cat" src="cat_only.png" alt="">
+      <h1 class="intro-logo">
+        <span class="word word-baffled"><span class="intro-letter">B</span><span class="intro-letter">a</span><span class="intro-letter">f</span><span class="intro-letter">f</span><span class="intro-letter">l</span><span class="intro-letter">e</span><span class="intro-letter">d</span></span>
+        <span class="word word-cat"><span class="intro-letter">C</span><span class="intro-letter">a</span><span class="intro-letter">t</span></span>
+        <span class="intro-presents"><span class="intro-letter">p</span><span class="intro-letter">r</span><span class="intro-letter">e</span><span class="intro-letter">s</span><span class="intro-letter">e</span><span class="intro-letter">n</span><span class="intro-letter">t</span><span class="intro-letter">s</span><span class="intro-letter">.</span><span class="intro-letter">.</span><span class="intro-letter">.</span></span>
+      </h1>
+    </div>
+  </div>
+
+  <nav class="site-nav">
+    <a class="nav-brand" href="index.html">
+      <img src="cat_only.png" alt="">
+      Baffled Cat
+    </a>
+    <div class="nav-links">
+      <a href="index.html#projects">Projects</a>
+      <a href="about.html">About</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="projects">
+      <div class="section-head">
+        <span class="eyebrow">Projects</span>
+        <h2>Things we've built</h2>
+        <p>A small set of independent games and interesting graphical applications, more to come!</p>
+      </div>
+      <div class="project-grid">
+        <a class="project-card" href="minesweeper.html">
+          <div class="project-thumb">
+            <img src="minesweeper.jpg" alt="Baffled Cat Minesweeper">
+          </div>
+          <div class="project-body">
+            <span class="project-tag">Live · Android</span>
+            <h3>Minesweeper</h3>
+            <p>Classic minesweeper with global leaderboards, replay validation, and a smug cat watching you lose.</p>
+            <span class="project-link">Play the game →</span>
+          </div>
+        </a>
+        <a class="project-card" href="highpersonic3.html">
+          <div class="project-thumb">
+            <img src="Highpersonic images/highpersonic3-20260610-070532.jpg" alt="Highpersonic 3">
+          </div>
+          <div class="project-body">
+            <span class="project-tag">Live · Web</span>
+            <h3>Highpersonic 3</h3>
+            <p>A browser-based audio visualiser that turns any sound into shifting generative geometry.</p>
+            <span class="project-link">Launch the app →</span>
+          </div>
+        </a>
+        <!-- Add new project cards here as they ship -->
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 Baffled Cat</span>
+    <nav>
+      <a href="about.html">About</a>
+      <a href="privacy.html">Privacy</a>
+    </nav>
+  </footer>
+
+  <script>
+    (function () {
+      var canvas = document.getElementById('bg-canvas');
+      var ctx = canvas.getContext('2d');
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // Concentric rings of nodes. Each ring spins at its own speed; nodes chase
+      // their rotating target position via a spring-damper, so the lattice lags
+      // and wobbles elastically rather than rotating as a rigid wheel.
+      var ringDefs = [
+        { count: 10, radiusFrac: 0.40, speed: 0.11, skip: 2, color: 'rgba(242, 165, 68, 0.11)' },
+        { count: 12, radiusFrac: 0.66, speed: -0.075, skip: 3, color: 'rgba(111, 184, 174, 0.10)' },
+        { count: 14, radiusFrac: 0.95, speed: 0.05, skip: 4, color: 'rgba(242, 165, 68, 0.08)' }
+      ];
+      var spokeColor = 'rgba(246, 239, 226, 0.05)';
+      var springK = 46;
+      var damping = 7.5;
+
+      var W = 0, H = 0, cx = 0, cy = 0, baseRadius = 0, dpr = 1;
+      var nodes = [];
+
+      function buildNodes() {
+        nodes = ringDefs.map(function (ring) {
+          var radius = baseRadius * ring.radiusFrac;
+          var ringNodes = [];
+          for (var i = 0; i < ring.count; i++) {
+            var angle = (i / ring.count) * Math.PI * 2;
+            ringNodes.push({
+              angle: angle,
+              x: cx + Math.cos(angle) * radius,
+              y: cy + Math.sin(angle) * radius,
+              vx: 0,
+              vy: 0
+            });
+          }
+          return ringNodes;
+        });
+      }
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        cx = W / 2;
+        cy = H / 2;
+        baseRadius = Math.min(W, H) * 0.78;
+        buildNodes();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        ringDefs.forEach(function (ring, ringIndex) {
+          var ringNodes = nodes[ringIndex];
+          ctx.strokeStyle = ring.color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (var i = 0; i < ringNodes.length; i++) {
+            var a = ringNodes[i];
+            var b = ringNodes[(i + ring.skip) % ringNodes.length];
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+          }
+          ctx.stroke();
+        });
+
+        ctx.strokeStyle = spokeColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (var r = 0; r < nodes.length - 1; r++) {
+          var inner = nodes[r], outer = nodes[r + 1];
+          var count = Math.min(inner.length, outer.length);
+          for (var j = 0; j < count; j++) {
+            ctx.moveTo(inner[j].x, inner[j].y);
+            ctx.lineTo(outer[j].x, outer[j].y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      var lastTime = null;
+
+      function step(timestamp) {
+        if (lastTime === null) lastTime = timestamp;
+        var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+        lastTime = timestamp;
+
+        ringDefs.forEach(function (ring, ringIndex) {
+          var ringNodes = nodes[ringIndex];
+          var radius = baseRadius * ring.radiusFrac;
+          for (var i = 0; i < ringNodes.length; i++) {
+            var node = ringNodes[i];
+            node.angle += ring.speed * dt;
+            var targetX = cx + Math.cos(node.angle) * radius;
+            var targetY = cy + Math.sin(node.angle) * radius;
+            var ax = springK * (targetX - node.x) - damping * node.vx;
+            var ay = springK * (targetY - node.y) - damping * node.vy;
+            node.vx += ax * dt;
+            node.vy += ay * dt;
+            node.x += node.vx * dt;
+            node.y += node.vy * dt;
+          }
+        });
+
+        draw();
+        requestAnimationFrame(step);
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      if (reduceMotion) {
+        draw();
+      } else {
+        requestAnimationFrame(step);
+      }
+    })();
+  </script>
+</body>
+</html>

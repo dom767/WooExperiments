@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minesweeper | Baffled Cat</title>
+  <meta name="description" content="Baffled Cat Minesweeper for Android.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .app-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .app-logo {
+      width: min(240px, 60vw);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .app-hero .eyebrow { margin-bottom: 0.75rem; }
+
+    .app-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.9rem, 5vw, 2.4rem);
+      letter-spacing: -0.02em;
+    }
+
+    .app-hero .subtitle {
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a class="nav-brand" href="index.html">
+      <img src="cat_only.png" alt="">
+      Baffled Cat
+    </a>
+    <div class="nav-links">
+      <a href="index.html#projects" class="is-active">Projects</a>
+      <a href="about.html">About</a>
+    </div>
+  </nav>
+
+  <main class="page-shell">
+    <a class="back-link" href="index.html">← Back to Baffled Cat</a>
+    <section class="page-card">
+      <header class="app-hero">
+        <div class="app-logo">
+          <img src="minesweeper.jpg" alt="Baffled Cat Minesweeper">
+        </div>
+        <span class="eyebrow">Live · Android</span>
+        <h1>Minesweeper</h1>
+        <p class="subtitle">Classic minesweeper, bafflingly refined</p>
+      </header>
+
+      <h2>About the app</h2>
+      <p>Baffled Cat Minesweeper is an Android game that brings the classic minesweeper experience to your phone with leaderboards, replay validation, and a touch of feline confusion.</p>
+
+      <h2>Features</h2>
+      <ul>
+        <li>Classic minesweeper gameplay with multiple difficulty levels</li>
+        <li>Global leaderboards with nickname and country display</li>
+        <li>Replay validation and anti-cheat protection</li>
+        <li>Offline play with score sync when you're back online</li>
+      </ul>
+
+      <h2>Privacy</h2>
+      <p>Read our <a href="privacy.html">Privacy Policy</a> for details on how we handle your data.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 Baffled Cat</span>
+    <nav>
+      <a href="about.html">About</a>
+      <a href="privacy.html">Privacy</a>
+    </nav>
+  </footer>
+</body>
+</html>
