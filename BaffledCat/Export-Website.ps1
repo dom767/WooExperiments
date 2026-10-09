@@ -75,7 +75,7 @@ New-Item -ItemType Directory -Path $versionDir | Out-Null
 Write-Host "Exporting site to Export\$nextVersion ..."
 
 # Core site files: every root-level HTML file, plus styles.css, favicon.ico, and the shared background script
-$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js')
+$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js', 'robots.txt', 'sitemap.xml')
 $coreFiles += Get-ChildItem -Path $root -Filter '*.html' -File | Select-Object -ExpandProperty Name
 
 foreach ($name in $coreFiles) {
@@ -183,11 +183,13 @@ $syncBase = @('s3', 'sync', $versionDir, "s3://$bucket/", '--region', $region, '
 # Long-lived assets first, then the markup/styles/scripts that must refresh quickly.
 $assetSync = $syncBase + @(
     '--cache-control', 'public, max-age=31536000, immutable',
-    '--exclude', '*.html', '--exclude', '*.css', '--exclude', '*.js'
+    '--exclude', '*.html', '--exclude', '*.css', '--exclude', '*.js',
+    '--exclude', 'robots.txt', '--exclude', 'sitemap.xml'
 )
 $markupSync = $syncBase + @(
     '--cache-control', 'public, max-age=60',
-    '--exclude', '*', '--include', '*.html', '--include', '*.css', '--include', '*.js'
+    '--exclude', '*', '--include', '*.html', '--include', '*.css', '--include', '*.js',
+    '--include', 'robots.txt', '--include', 'sitemap.xml'
 )
 
 foreach ($syncArgs in @($assetSync, $markupSync)) {
