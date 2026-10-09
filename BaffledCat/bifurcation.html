@@ -180,7 +180,10 @@
 
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
-      <img src="cat_only.png" alt="">
+      <picture>
+        <source type="image/webp" srcset="img/cat-96.webp">
+        <img src="img/cat-96.png" alt="" width="96" height="63" decoding="async">
+      </picture>
       Baffled Cat
     </a>
     <div class="nav-links">
@@ -195,7 +198,11 @@
       <header class="app-hero">
         <a class="app-logo-link" href="bifurcation/index.html">
           <div class="app-logo">
-            <img src="BifurcationDiagrams/Overview.jpg" alt="Bifurcation Diagram">
+            <picture>
+              <source type="image/avif" srcset="img/bifurcation-overview-480.avif 480w, img/bifurcation-overview-800.avif 800w, img/bifurcation-overview-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 560px">
+              <source type="image/webp" srcset="img/bifurcation-overview-480.webp 480w, img/bifurcation-overview-800.webp 800w, img/bifurcation-overview-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 560px">
+              <img src="img/bifurcation-overview-800.jpg" srcset="img/bifurcation-overview-480.jpg 480w, img/bifurcation-overview-800.jpg 800w, img/bifurcation-overview-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 560px" alt="Bifurcation Diagram" width="800" height="450" loading="eager" fetchpriority="high" decoding="async">
+            </picture>
           </div>
         </a>
         <span class="eyebrow">Live · Web</span>
@@ -208,8 +215,12 @@
 
       <h2>The logistic map</h2>
       <p>An interactive viewer for the classic bifurcation diagram of the logistic map — a simple recurrence that produces one of the most recognisable images in chaos theory.</p>
-      <a href="BifurcationDiagrams/Overview.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/Overview.jpg" alt="Overview of the logistic map bifurcation diagram" loading="lazy">
+      <a href="img/bifurcation-overview-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-overview-480.avif 480w, img/bifurcation-overview-800.avif 800w, img/bifurcation-overview-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-overview-480.webp 480w, img/bifurcation-overview-800.webp 800w, img/bifurcation-overview-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-overview-800.jpg" srcset="img/bifurcation-overview-480.jpg 480w, img/bifurcation-overview-800.jpg 800w, img/bifurcation-overview-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Overview of the logistic map bifurcation diagram" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>The map itself is almost trivial:</p>
       <p class="equation">x<sub>n+1</sub> = r · x<sub>n</sub> · (1 − x<sub>n</sub>)</p>
@@ -217,32 +228,52 @@
       <p>This application builds that picture progressively in the browser: high-precision (fp64) accumulation on the CPU, with WebGPU used only to display the result. You can pan, zoom, retune colour and exposure, and export screenshots at full resolution.</p>
 
       <h2>Self-similarity</h2>
-      <a href="BifurcationDiagrams/FractalDiagram.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/FractalDiagram.jpg" alt="Self-similar structure inside the bifurcation diagram" loading="lazy">
+      <a href="img/bifurcation-fractal-diagram-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-fractal-diagram-480.avif 480w, img/bifurcation-fractal-diagram-800.avif 800w, img/bifurcation-fractal-diagram-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-fractal-diagram-480.webp 480w, img/bifurcation-fractal-diagram-800.webp 800w, img/bifurcation-fractal-diagram-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-fractal-diagram-800.jpg" srcset="img/bifurcation-fractal-diagram-480.jpg 480w, img/bifurcation-fractal-diagram-800.jpg 800w, img/bifurcation-fractal-diagram-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Self-similar structure inside the bifurcation diagram" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>Zoom in and the cascade repeats. Nested period-doubling forks echo the large-scale diagram at every magnification — a fractal structure discovered in the logistic map and related one-dimensional maps. The same branching motif appears inside chaotic bands and around the edges of periodic windows.</p>
 
       <h2>Sinusoidal structure</h2>
-      <a href="BifurcationDiagrams/Sinwaves.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/Sinwaves.jpg" alt="Sinusoidal patterns at high iteration counts" loading="lazy">
+      <a href="img/bifurcation-sinwaves-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-sinwaves-480.avif 480w, img/bifurcation-sinwaves-800.avif 800w, img/bifurcation-sinwaves-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-sinwaves-480.webp 480w, img/bifurcation-sinwaves-800.webp 800w, img/bifurcation-sinwaves-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-sinwaves-800.jpg" srcset="img/bifurcation-sinwaves-480.jpg 480w, img/bifurcation-sinwaves-800.jpg 800w, img/bifurcation-sinwaves-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Sinusoidal patterns at high iteration counts" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>At high iteration counts, the density field resolves into fine sinusoidal streaks rather than a solid spray of points. These undulating threads are the visible footprint of almost-periodic motion — orbits that wander slowly across the attractor and paint smooth wave-like paths through parameter space.</p>
 
       <h2>Waves around a gap</h2>
-      <a href="BifurcationDiagrams/SinwavesAroundGap.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/SinwavesAroundGap.jpg" alt="Sinusoidal patterns intersecting self-similar bifurcation diagrams around a gap" loading="lazy">
+      <a href="img/bifurcation-sinwaves-around-gap-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-sinwaves-around-gap-480.avif 480w, img/bifurcation-sinwaves-around-gap-800.avif 800w, img/bifurcation-sinwaves-around-gap-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-sinwaves-around-gap-480.webp 480w, img/bifurcation-sinwaves-around-gap-800.webp 800w, img/bifurcation-sinwaves-around-gap-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-sinwaves-around-gap-800.jpg" srcset="img/bifurcation-sinwaves-around-gap-480.jpg 480w, img/bifurcation-sinwaves-around-gap-800.jpg 800w, img/bifurcation-sinwaves-around-gap-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Sinusoidal patterns intersecting self-similar bifurcation diagrams around a gap" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>Near the openings of periodic windows, those waves do not simply fade out. They weave around and through miniature copies of the bifurcation diagram itself — self-similar cascades sitting inside the larger chaos, braided with the sinusoidal filaments that fill the surrounding band.</p>
 
       <h2>Tight detail</h2>
-      <a href="BifurcationDiagrams/TightDetail.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/TightDetail.jpg" alt="Many coincident sinusoids within the diagram" loading="lazy">
+      <a href="img/bifurcation-tight-detail-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-tight-detail-480.avif 480w, img/bifurcation-tight-detail-800.avif 800w, img/bifurcation-tight-detail-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-tight-detail-480.webp 480w, img/bifurcation-tight-detail-800.webp 800w, img/bifurcation-tight-detail-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-tight-detail-800.jpg" srcset="img/bifurcation-tight-detail-480.jpg 480w, img/bifurcation-tight-detail-800.jpg 800w, img/bifurcation-tight-detail-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Many coincident sinusoids within the diagram" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>Push further and the strands multiply. Dozens of sinusoids of different amplitudes and phases pack into a narrow region of the diagram, each tracing a slightly different frequency of motion on the attractor. The eye reads them as a woven texture; they are the diagram’s fine-scale bookkeeping of chaotic orbits.</p>
 
       <h2>Convergence</h2>
-      <a href="BifurcationDiagrams/Convergance.jpg" class="lightbox-link bifurcation-figure">
-        <img src="BifurcationDiagrams/Convergance.jpg" alt="Crossing point where sinusoids of different frequencies coincide" loading="lazy">
+      <a href="img/bifurcation-convergence-full.webp" class="lightbox-link bifurcation-figure">
+        <picture>
+          <source type="image/avif" srcset="img/bifurcation-convergence-480.avif 480w, img/bifurcation-convergence-800.avif 800w, img/bifurcation-convergence-1200.avif 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <source type="image/webp" srcset="img/bifurcation-convergence-480.webp 480w, img/bifurcation-convergence-800.webp 800w, img/bifurcation-convergence-1200.webp 1200w" sizes="(max-width: 780px) 88vw, 700px">
+          <img src="img/bifurcation-convergence-800.jpg" srcset="img/bifurcation-convergence-480.jpg 480w, img/bifurcation-convergence-800.jpg 800w, img/bifurcation-convergence-1200.jpg 1200w" sizes="(max-width: 780px) 88vw, 700px" alt="Crossing point where sinusoids of different frequencies coincide" width="800" height="450" loading="lazy" decoding="async">
+        </picture>
       </a>
       <p>Occasionally the threads agree. At isolated crossings, waves of many frequencies pass through a single point — a coincidence in the density field where disparate orbits briefly share the same (<em>r</em>, <em>x</em>). These convergence loci are striking landmarks when exploring at high zoom and long accumulation.</p>
 

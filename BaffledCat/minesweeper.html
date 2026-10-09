@@ -62,7 +62,10 @@
 
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
-      <img src="cat_only.png" alt="">
+      <picture>
+        <source type="image/webp" srcset="img/cat-96.webp">
+        <img src="img/cat-96.png" alt="" width="96" height="63" decoding="async">
+      </picture>
       Baffled Cat
     </a>
     <div class="nav-links">
@@ -76,7 +79,11 @@
     <section class="page-card">
       <header class="app-hero">
         <div class="app-logo">
-          <img src="minesweeper.jpg" alt="Baffled Cat Minesweeper">
+          <picture>
+            <source type="image/avif" srcset="img/minesweeper-480.avif 480w" sizes="240px">
+            <source type="image/webp" srcset="img/minesweeper-480.webp 480w" sizes="240px">
+            <img src="img/minesweeper-480.jpg" srcset="img/minesweeper-480.jpg 480w" sizes="240px" alt="Baffled Cat Minesweeper" width="480" height="960" loading="eager" fetchpriority="high" decoding="async">
+          </picture>
         </div>
         <span class="eyebrow">Live · Android</span>
         <h1>Minesweeper</h1>

@@ -167,7 +167,10 @@
 
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
-      <img src="cat_only.png" alt="">
+      <picture>
+        <source type="image/webp" srcset="img/cat-96.webp">
+        <img src="img/cat-96.png" alt="" width="96" height="63" decoding="async">
+      </picture>
       Baffled Cat
     </a>
     <div class="nav-links">
@@ -182,7 +185,11 @@
       <header class="app-hero">
         <a class="app-logo-link" href="vulcan/index.html">
           <div class="app-logo">
-            <img src="Vulcan images/Vulcan_0003.jpg" alt="Vulcan">
+            <picture>
+              <source type="image/avif" srcset="img/vulcan-0003-480.avif 480w, img/vulcan-0003-800.avif 800w, img/vulcan-0003-1200.avif 1200w" sizes="240px">
+              <source type="image/webp" srcset="img/vulcan-0003-480.webp 480w, img/vulcan-0003-800.webp 800w, img/vulcan-0003-1200.webp 1200w" sizes="240px">
+              <img src="img/vulcan-0003-800.jpg" srcset="img/vulcan-0003-480.jpg 480w, img/vulcan-0003-800.jpg 800w, img/vulcan-0003-1200.jpg 1200w" sizes="240px" alt="Vulcan" width="800" height="681" loading="eager" fetchpriority="high" decoding="async">
+            </picture>
           </div>
         </a>
         <span class="eyebrow">Live · Web</span>
@@ -196,14 +203,26 @@
 
       <h2>Gallery</h2>
       <div class="vulcan-gallery">
-        <a href="Vulcan images/Vulcan_0003.jpg" class="lightbox-link">
-          <img src="Vulcan images/Vulcan_0003.jpg" alt="Vulcan render — crystalline structure" loading="lazy">
+        <a href="img/vulcan-0003-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/vulcan-0003-480.avif 480w, img/vulcan-0003-800.avif 800w, img/vulcan-0003-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/vulcan-0003-480.webp 480w, img/vulcan-0003-800.webp 800w, img/vulcan-0003-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/vulcan-0003-800.jpg" srcset="img/vulcan-0003-480.jpg 480w, img/vulcan-0003-800.jpg 800w, img/vulcan-0003-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Vulcan render — crystalline structure" width="800" height="681" loading="lazy" decoding="async">
+          </picture>
         </a>
-        <a href="Vulcan images/Vulcan_0008.jpg" class="lightbox-link">
-          <img src="Vulcan images/Vulcan_0008.jpg" alt="Vulcan render — tangled procedural growth" loading="lazy">
+        <a href="img/vulcan-0008-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/vulcan-0008-480.avif 480w, img/vulcan-0008-800.avif 800w, img/vulcan-0008-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/vulcan-0008-480.webp 480w, img/vulcan-0008-800.webp 800w, img/vulcan-0008-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/vulcan-0008-800.jpg" srcset="img/vulcan-0008-480.jpg 480w, img/vulcan-0008-800.jpg 800w, img/vulcan-0008-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Vulcan render — tangled procedural growth" width="800" height="693" loading="lazy" decoding="async">
+          </picture>
         </a>
-        <a href="Vulcan images/Vulcan_0010.jpg" class="lightbox-link">
-          <img src="Vulcan images/Vulcan_0010.jpg" alt="Vulcan render — reflective geometric interior" loading="lazy">
+        <a href="img/vulcan-0010-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/vulcan-0010-480.avif 480w, img/vulcan-0010-800.avif 800w, img/vulcan-0010-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/vulcan-0010-480.webp 480w, img/vulcan-0010-800.webp 800w, img/vulcan-0010-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/vulcan-0010-800.jpg" srcset="img/vulcan-0010-480.jpg 480w, img/vulcan-0010-800.jpg 800w, img/vulcan-0010-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Vulcan render — reflective geometric interior" width="800" height="693" loading="lazy" decoding="async">
+          </picture>
         </a>
       </div>
     </section>

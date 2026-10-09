@@ -65,6 +65,7 @@ a { color: inherit; }
 }
 
 img { max-width: 100%; display: block; }
+picture { display: contents; }
 
 ::selection {
   background: var(--accent-amber);

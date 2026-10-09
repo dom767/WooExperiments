@@ -195,7 +195,10 @@
 
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
-      <img src="cat_only.png" alt="">
+      <picture>
+        <source type="image/webp" srcset="img/cat-96.webp">
+        <img src="img/cat-96.png" alt="" width="96" height="63" decoding="async">
+      </picture>
       Baffled Cat
     </a>
     <div class="nav-links">
@@ -210,7 +213,11 @@
       <header class="app-hero">
         <a class="app-logo-link" href="exoplanetviewer/index.html">
           <div class="app-logo">
-            <img src="ExoplanetViewer/s20img.jpg" alt="Exoplanet Viewer">
+            <picture>
+              <source type="image/avif" srcset="img/exoplanet-viewer-480.avif 480w" sizes="240px">
+              <source type="image/webp" srcset="img/exoplanet-viewer-480.webp 480w" sizes="240px">
+              <img src="img/exoplanet-viewer-480.jpg" srcset="img/exoplanet-viewer-480.jpg 480w" sizes="240px" alt="Exoplanet Viewer" width="480" height="966" loading="eager" fetchpriority="high" decoding="async">
+            </picture>
           </div>
         </a>
         <span class="eyebrow">Live · Web</span>
@@ -253,14 +260,26 @@
 
       <h2>Gallery</h2>
       <div class="exoplanet-gallery">
-        <a href="ExoplanetViewer/Screenshot 2026-08-12 133549.png" class="lightbox-link">
-          <img src="ExoplanetViewer/Screenshot 2026-08-12 133549.png" alt="Exoplanet Viewer — nearby star systems" loading="lazy">
+        <a href="img/exoplanet-viewer-nearby-stars-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/exoplanet-viewer-nearby-stars-480.avif 480w, img/exoplanet-viewer-nearby-stars-800.avif 800w, img/exoplanet-viewer-nearby-stars-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/exoplanet-viewer-nearby-stars-480.webp 480w, img/exoplanet-viewer-nearby-stars-800.webp 800w, img/exoplanet-viewer-nearby-stars-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/exoplanet-viewer-nearby-stars-800.jpg" srcset="img/exoplanet-viewer-nearby-stars-480.jpg 480w, img/exoplanet-viewer-nearby-stars-800.jpg 800w, img/exoplanet-viewer-nearby-stars-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Exoplanet Viewer — nearby star systems" width="800" height="429" loading="lazy" decoding="async">
+          </picture>
         </a>
-        <a href="ExoplanetViewer/zooming to local.jpg" class="lightbox-link">
-          <img src="ExoplanetViewer/zooming to local.jpg" alt="Exoplanet Viewer — zooming toward a local system" loading="lazy">
+        <a href="img/exoplanet-viewer-zoom-local-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/exoplanet-viewer-zoom-local-480.avif 480w, img/exoplanet-viewer-zoom-local-800.avif 800w, img/exoplanet-viewer-zoom-local-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/exoplanet-viewer-zoom-local-480.webp 480w, img/exoplanet-viewer-zoom-local-800.webp 800w, img/exoplanet-viewer-zoom-local-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/exoplanet-viewer-zoom-local-800.jpg" srcset="img/exoplanet-viewer-zoom-local-480.jpg 480w, img/exoplanet-viewer-zoom-local-800.jpg 800w, img/exoplanet-viewer-zoom-local-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Exoplanet Viewer — zooming toward a local system" width="800" height="429" loading="lazy" decoding="async">
+          </picture>
         </a>
-        <a href="ExoplanetViewer/zooming to local2.jpg" class="lightbox-link">
-          <img src="ExoplanetViewer/zooming to local2.jpg" alt="Exoplanet Viewer — planetary system detail" loading="lazy">
+        <a href="img/exoplanet-viewer-system-detail-full.webp" class="lightbox-link">
+          <picture>
+            <source type="image/avif" srcset="img/exoplanet-viewer-system-detail-480.avif 480w, img/exoplanet-viewer-system-detail-800.avif 800w, img/exoplanet-viewer-system-detail-1200.avif 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <source type="image/webp" srcset="img/exoplanet-viewer-system-detail-480.webp 480w, img/exoplanet-viewer-system-detail-800.webp 800w, img/exoplanet-viewer-system-detail-1200.webp 1200w" sizes="(max-width: 640px) 92vw, 340px">
+            <img src="img/exoplanet-viewer-system-detail-800.jpg" srcset="img/exoplanet-viewer-system-detail-480.jpg 480w, img/exoplanet-viewer-system-detail-800.jpg 800w, img/exoplanet-viewer-system-detail-1200.jpg 1200w" sizes="(max-width: 640px) 92vw, 340px" alt="Exoplanet Viewer — planetary system detail" width="800" height="429" loading="lazy" decoding="async">
+          </picture>
         </a>
       </div>
     </section>

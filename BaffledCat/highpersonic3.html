@@ -206,7 +206,10 @@
 
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
-      <img src="cat_only.png" alt="">
+      <picture>
+        <source type="image/webp" srcset="img/cat-96.webp">
+        <img src="img/cat-96.png" alt="" width="96" height="63" decoding="async">
+      </picture>
       Baffled Cat
     </a>
     <div class="nav-links">
@@ -222,12 +225,20 @@
         <div class="app-hero-media">
           <div class="app-logo-link">
             <div class="app-logo">
-              <img src="Highpersonic images/highpersonic.jpg" alt="The original Highpersonic, 1998">
+              <picture>
+                <source type="image/avif" srcset="img/highpersonic-1998-275.avif 275w" sizes="240px">
+                <source type="image/webp" srcset="img/highpersonic-1998-275.webp 275w" sizes="240px">
+                <img src="img/highpersonic-1998-275.jpg" srcset="img/highpersonic-1998-275.jpg 275w" sizes="240px" alt="The original Highpersonic, 1998" width="275" height="464" loading="eager" decoding="async">
+              </picture>
             </div>
           </div>
           <a class="app-logo-link" href="highpersonic3/index.html">
             <div class="app-logo">
-              <img src="highpersonic3.jpg" alt="Highpersonic 3">
+              <picture>
+                <source type="image/avif" srcset="img/highpersonic3-480.avif 480w" sizes="240px">
+                <source type="image/webp" srcset="img/highpersonic3-480.webp 480w" sizes="240px">
+                <img src="img/highpersonic3-480.jpg" srcset="img/highpersonic3-480.jpg 480w" sizes="240px" alt="Highpersonic 3" width="480" height="960" loading="eager" fetchpriority="high" decoding="async">
+              </picture>
             </div>
           </a>
         </div>

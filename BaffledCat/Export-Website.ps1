@@ -88,9 +88,12 @@ foreach ($name in $coreFiles) {
 }
 
 # Share images referenced only from <meta content=...> tags (og/), copied as-is into og/.
-$ogSource = Join-Path $root 'og'
-if (Test-Path $ogSource) {
-    Copy-Item -Path $ogSource -Destination (Join-Path $versionDir 'og') -Recurse -Force
+# Optimised site images (img/) are copied as-is; HTML references them as img/<name> (including srcset).
+foreach ($dir in @('og', 'img')) {
+    $dirSource = Join-Path $root $dir
+    if (Test-Path $dirSource) {
+        Copy-Item -Path $dirSource -Destination (Join-Path $versionDir $dir) -Recurse -Force
+    }
 }
 
 # Walk every exported HTML file, find image references (src="..." or href="...")
@@ -103,7 +106,7 @@ foreach ($file in $htmlExports) {
 
     $refs = [regex]::Matches($content, '(?:src|href)="([^"]+)"') |
         ForEach-Object { $_.Groups[1].Value } |
-        Where-Object { $_ -match $imageExtPattern -and $_ -notmatch '^(?:https?:)?//' } |
+        Where-Object { $_ -match $imageExtPattern -and $_ -notmatch '^(?:https?:)?//' -and $_ -notmatch '^/?img/' } |
         Select-Object -Unique
 
     foreach ($ref in $refs) {
