@@ -189,19 +189,23 @@ Write-Host "Uploading to s3://$bucket/ as $identity ..."
 # exoplanetviewer/, portfolio/) live under the same bucket root and are deployed separately.
 $syncBase = @('s3', 'sync', $versionDir, "s3://$bucket/", '--region', $region, '--no-progress')
 
-# Long-lived assets first, then the markup/styles/scripts that must refresh quickly.
+# Images/fonts long-lived; CSS/JS 7 days (file names are not versioned yet, so no immutable);
+# HTML, robots.txt and sitemap.xml short so edits show up quickly.
 $assetSync = $syncBase + @(
     '--cache-control', 'public, max-age=31536000, immutable',
     '--exclude', '*.html', '--exclude', '*.css', '--exclude', '*.js',
     '--exclude', 'robots.txt', '--exclude', 'sitemap.xml'
 )
+$codeSync = $syncBase + @(
+    '--cache-control', 'public, max-age=604800',
+    '--exclude', '*', '--include', '*.css', '--include', '*.js'
+)
 $markupSync = $syncBase + @(
-    '--cache-control', 'public, max-age=60',
-    '--exclude', '*', '--include', '*.html', '--include', '*.css', '--include', '*.js',
-    '--include', 'robots.txt', '--include', 'sitemap.xml'
+    '--cache-control', 'public, max-age=300, must-revalidate',
+    '--exclude', '*', '--include', '*.html', '--include', 'robots.txt', '--include', 'sitemap.xml'
 )
 
-foreach ($syncArgs in @($assetSync, $markupSync)) {
+foreach ($syncArgs in @($assetSync, $codeSync, $markupSync)) {
     $result = Invoke-Aws -Arguments $syncArgs
     if ($result.Output) { Write-Host $result.Output }
     if ($result.ExitCode -ne 0) {
@@ -211,4 +215,4 @@ foreach ($syncArgs in @($assetSync, $markupSync)) {
 
 Write-Host ''
 Write-Host "Published Export\$nextVersion to https://baffledcat.com/"
-Write-Host 'HTML/CSS/JS cached for 60s; images cached long. Purge Cloudflare if you need it live immediately.'
+Write-Host 'HTML cached 5 min, CSS/JS 7 days, images 1 year. Purge Cloudflare if you need it live immediately.'

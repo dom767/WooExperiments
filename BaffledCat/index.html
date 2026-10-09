@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/consent.js"></script>
-  <title>Baffled Cat</title>
-  <meta name="description" content="Baffled Cat — a small independent studio making games and audio-visual tools.">
+  <title>Baffled Cat – Indie games and generative graphics apps</title>
+  <meta name="description" content="Baffled Cat makes small independent games and browser apps: Minesweeper for Android, the Highpersonic 3 audio visualiser, Vulcan, an exoplanet map and more.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Baffled Cat">
-  <meta property="og:title" content="Baffled Cat">
-  <meta property="og:description" content="Baffled Cat — a small independent studio making games and audio-visual tools.">
+  <meta property="og:title" content="Baffled Cat – Indie games and generative graphics apps">
+  <meta property="og:description" content="Baffled Cat makes small independent games and browser apps: Minesweeper for Android, the Highpersonic 3 audio visualiser, Vulcan, an exoplanet map and more.">
   <meta property="og:url" content="https://baffledcat.com/">
   <meta property="og:image" content="https://baffledcat.com/og/default.jpg">
   <meta property="og:image:width" content="1200">
@@ -17,14 +17,16 @@
   <meta property="og:image:alt" content="The Baffled Cat logo: a cream cat peeking over a ledge">
   <meta property="og:locale" content="en_GB">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Baffled Cat">
-  <meta name="twitter:description" content="Baffled Cat — a small independent studio making games and audio-visual tools.">
+  <meta name="twitter:title" content="Baffled Cat – Indie games and generative graphics apps">
+  <meta name="twitter:description" content="Baffled Cat makes small independent games and browser apps: Minesweeper for Android, the Highpersonic 3 audio visualiser, Vulcan, an exoplanet map and more.">
   <meta name="twitter:image" content="https://baffledcat.com/og/default.jpg">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap"></noscript>
   <link rel="stylesheet" href="styles.css">
   <script>
     // Play the splash once per tab session; skip it on repeat visits to the
@@ -182,6 +184,15 @@
       margin-top: 0.5rem;
     }
 
+    .home-intro { margin-bottom: 0; }
+
+    .home-intro h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.7rem, 5vw, 2.4rem);
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
     .section-head p {
       color: var(--text-muted);
       margin-top: 0.4rem;
@@ -295,11 +306,11 @@
         <source type="image/webp" srcset="img/cat-420.webp">
         <img class="intro-cat" src="cat_only.png" alt="" width="420" height="275" decoding="async">
       </picture>
-      <h1 class="intro-logo">
+      <div class="intro-logo">
         <span class="word word-baffled"><span class="intro-letter">B</span><span class="intro-letter">a</span><span class="intro-letter">f</span><span class="intro-letter">f</span><span class="intro-letter">l</span><span class="intro-letter">e</span><span class="intro-letter">d</span></span>
         <span class="word word-cat"><span class="intro-letter">C</span><span class="intro-letter">a</span><span class="intro-letter">t</span></span>
         <span class="intro-presents"><span class="intro-letter">p</span><span class="intro-letter">r</span><span class="intro-letter">e</span><span class="intro-letter">s</span><span class="intro-letter">e</span><span class="intro-letter">n</span><span class="intro-letter">t</span><span class="intro-letter">s</span><span class="intro-letter">.</span><span class="intro-letter">.</span><span class="intro-letter">.</span></span>
-      </h1>
+      </div>
     </div>
   </div>
 
@@ -318,6 +329,11 @@
   </nav>
 
   <main>
+    <header class="section-head home-intro">
+      <h1>Indie games and generative graphics apps</h1>
+      <p>Baffled Cat is a small independent studio. Play Minesweeper on Android, or launch our audio visualiser, raytracer, exoplanet map and chaos-theory explorer in your browser.</p>
+    </header>
+
     <section id="projects">
       <div class="section-head">
         <span class="eyebrow">Projects</span>
