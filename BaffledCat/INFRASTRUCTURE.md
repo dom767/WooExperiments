@@ -49,11 +49,11 @@ Current configured records documented here: **11**.
 - AWS provides content hosting (S3) and API execution (API Gateway/Lambda).
 - **Cloudflare** (orange-cloud proxy on `baffledcat.com`) is the CDN/cache layer in front of S3. There is no CloudFront distribution on the main site.
 
-## Main site caching and JavaScript versioning
+## Main site caching and JS/CSS versioning
 
 `Export-Website.ps1` sets `Cache-Control` at upload: HTML, `robots.txt`, `sitemap.xml` and `site.webmanifest` `public, max-age=300, must-revalidate`; CSS/JS `public, max-age=604800`; images `public, max-age=31536000, immutable`.
 
-Because JS is cached for a week, **every JavaScript reference in the HTML carries `?v=<site version>`** (the integer in `VERSION`, bumped on each upload and stamped into the HTML by the export). A new version changes the JS URLs, so browsers and Cloudflare fetch fresh JavaScript instead of serving stale copies. Cloudflare must keep query strings in the cache key (the default for static files). See the *cache busting* policy in `README.md`.
+Because JS is cached for a week, **every JavaScript and CSS reference in the HTML carries `?v=<site version>`** (the integer in `VERSION`, bumped on each upload and stamped into the HTML by the export). A new version changes the JS URLs, so browsers and Cloudflare fetch fresh JavaScript and CSS instead of serving stale copies. Cloudflare must keep query strings in the cache key (the default for static files). See the *cache busting* policy in `README.md`.
 
 ## Caching (Highpersonic 3)
 

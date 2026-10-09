@@ -15,16 +15,16 @@ Double-click `ExportWebsite.cmd` (or run `Export-Website.ps1`; add `-SkipUpload`
 1. Commit the bumped `VERSION` file.
 2. Purge the Cloudflare cache if the change must be live immediately.
 
-## Policy: cache busting for JavaScript
-**Every JavaScript file referenced from an HTML file must carry a query string containing the site version number.** When the version increases, every `.js` URL changes, which forces browsers and Cloudflare to fetch fresh copies and avoids stale JavaScript being served.
+## Policy: cache busting for JavaScript and CSS
+**Every JavaScript and CSS file referenced from an HTML file must carry a query string containing the site version number.** When the version increases, every `.js` and `.css` URL changes, which forces browsers and Cloudflare to fetch fresh copies and avoids stale JavaScript or CSS being served.
 
 - The site version is the integer in the `VERSION` file.
-- In source HTML, write the placeholder, e.g. `<script src="/consent.js?v=__VERSION__"></script>` or `<script src="bg-lattice.js?v=__VERSION__"></script>`. (It is a harmless query string when viewing the source locally.)
+- In source HTML, write the placeholder, e.g. `<script src="/consent.js?v=__VERSION__"></script>` or `<script src="bg-lattice.js?v=__VERSION__"></script>`, `<link rel="stylesheet" href="styles.css?v=__VERSION__">`. (It is a harmless query string when viewing the source locally.)
 - `Export-Website.ps1` bumps `VERSION` on every real upload (not with `-SkipUpload`) and replaces `__VERSION__` in the exported HTML with the number.
-- The export **fails** if any local `<script src>` lacks `?v=__VERSION__`, so a new script can't be added without it.
-- Third-party scripts (e.g. Google Tag Manager) are exempt.
-- JS loaded some other way (dynamic `import()`, `fetch`, workers) must also be versioned; pass the version in explicitly.
-- The web apps (`highpersonic3`, `vulcan`, `exoplanetviewer`, `bifurcation`) are in other repos and should follow the same policy for the JS their HTML references when they are next changed.
+- The export **fails** if any local `<script src>` or stylesheet `<link href>` lacks `?v=__VERSION__`, so a new script or stylesheet can't be added without it.
+- Third-party scripts and stylesheets (e.g. Google Tag Manager, Google Fonts) are exempt.
+- JS/CSS loaded some other way (dynamic `import()`, `fetch`, workers, CSS `@import`) must also be versioned; pass the version in explicitly.
+- The web apps (`highpersonic3`, `vulcan`, `exoplanetviewer`, `bifurcation`) are in other repos and should follow the same policy for the JS and CSS their HTML references when they are next changed.
 
 ## Other conventions
 - Cache headers are set by the export script: HTML 5 min, CSS/JS 7 days, images 1 year (`immutable`).
