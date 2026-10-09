@@ -69,6 +69,18 @@ $existing = Get-ChildItem -Path $exportRoot -Directory |
 
 $nextVersion = if ($existing) { ($existing | Measure-Object -Maximum).Maximum + 1 } else { 1 }
 
+# Site version (VERSION file). Every local script reference in the HTML carries ?v=__VERSION__, which is
+# stamped with this number so a new version forces browsers/CDN to fetch fresh JavaScript.
+# A real upload bumps it; -SkipUpload reuses the current number. Commit VERSION after an upload.
+$versionFile = Join-Path $root 'VERSION'
+$siteVersion = 0
+if (Test-Path $versionFile) { [void][int]::TryParse((Get-Content $versionFile -Raw).Trim(), [ref]$siteVersion) }
+if (-not $SkipUpload) {
+    $siteVersion++
+    Set-Content -Path $versionFile -Value $siteVersion
+}
+Write-Host "Site version: $siteVersion"
+
 $versionDir = Join-Path $exportRoot $nextVersion
 New-Item -ItemType Directory -Path $versionDir | Out-Null
 
@@ -124,6 +136,15 @@ foreach ($file in $htmlExports) {
             $content = $content.Replace($ref, $flatName)
         }
     }
+
+    # Policy: every local <script src> must be versioned (see README.md, Cache busting).
+    $unversioned = [regex]::Matches($content, '<script[^>]*\ssrc="([^"]+)"') |
+        ForEach-Object { $_.Groups[1].Value } |
+        Where-Object { $_ -notmatch '^(?:https?:)?//' -and $_ -notmatch '\?v=__VERSION__$' }
+    if ($unversioned) {
+        throw "$($file.Name): script(s) missing '?v=__VERSION__': $($unversioned -join ', ')"
+    }
+    $content = $content.Replace('__VERSION__', "$siteVersion")
 
     Set-Content -Path $file.FullName -Value $content -NoNewline
 }
