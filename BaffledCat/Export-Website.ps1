@@ -87,6 +87,12 @@ foreach ($name in $coreFiles) {
     }
 }
 
+# Share images referenced only from <meta content=...> tags (og/), copied as-is into og/.
+$ogSource = Join-Path $root 'og'
+if (Test-Path $ogSource) {
+    Copy-Item -Path $ogSource -Destination (Join-Path $versionDir 'og') -Recurse -Force
+}
+
 # Walk every exported HTML file, find image references (src="..." or href="...")
 # and flatten any that point into a subfolder so the image sits next to the HTML.
 $imageExtPattern = '\.(?:jpg|jpeg|png|gif|webp|svg|ico)$'
