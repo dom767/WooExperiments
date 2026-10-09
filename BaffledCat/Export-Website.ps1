@@ -75,7 +75,7 @@ New-Item -ItemType Directory -Path $versionDir | Out-Null
 Write-Host "Exporting site to Export\$nextVersion ..."
 
 # Core site files: every root-level HTML file, plus styles.css, favicon.ico, and the shared background script
-$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js', 'robots.txt', 'sitemap.xml')
+$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js', 'robots.txt', 'sitemap.xml', 'consent.js')
 $coreFiles += Get-ChildItem -Path $root -Filter '*.html' -File | Select-Object -ExpandProperty Name
 
 foreach ($name in $coreFiles) {
