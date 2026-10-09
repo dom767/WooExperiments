@@ -170,15 +170,24 @@ img { max-width: 100%; display: block; }
   opacity: 0.92;
 }
 
-.btn-ghost {
+.btn-ghost,
+.btn-secondary {
   background: transparent;
   border-color: var(--border-strong);
   color: var(--text);
 }
 
-.btn-ghost:hover {
+.btn-ghost:hover,
+.btn-secondary:hover {
   border-color: var(--accent-amber);
   color: var(--accent-amber);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
 /* ---------- Eyebrow / labels ---------- */
