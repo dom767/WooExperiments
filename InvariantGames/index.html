@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invariant Games — Coming Soon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.3);
+            --text: #e8e8ed;
+            --text-muted: #6b6b7a;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Faint electronic strategy background */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url('invariant-games-bg.png');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 1;
+            padding: 2rem;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            letter-spacing: 0.15em;
+            color: #fff;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo span {
+            opacity: 0;
+            animation: letterIn 0.25s ease-out forwards;
+            animation-delay: calc(0.06s * var(--i));
+        }
+
+        @keyframes letterIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tagline {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 500;
+            font-size: clamp(1rem, 2.5vw, 1.35rem);
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            opacity: 0;
+            animation: fadeInUp 0.6s ease-out 1.2s forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .copyright {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            z-index: 1;
+        }
+
+        /* Glow effect */
+        .glow {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="glow"></div>
+    <main class="container">
+        <h1 class="logo">
+            <span style="--i: 0">I</span><span style="--i: 1">N</span><span style="--i: 2">V</span><span style="--i: 3">A</span><span style="--i: 4">R</span><span style="--i: 5">I</span><span style="--i: 6">A</span><span style="--i: 7">N</span><span style="--i: 8">T</span><span style="--i: 9"> </span><span style="--i: 10">G</span><span style="--i: 11">A</span><span style="--i: 12">M</span><span style="--i: 13">E</span><span style="--i: 14">S</span>
+        </h1>
+        <p class="tagline">puzzle games to keep your mind healthy</p>
+    </main>
+    <footer class="copyright">© 2026 Invariant Games</footer>
+</body>
+</html>

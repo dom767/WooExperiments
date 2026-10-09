@@ -20,18 +20,32 @@
       margin-bottom: 1.75rem;
     }
 
+    .app-hero-media {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
     .app-logo-link {
       display: block;
       width: min(240px, 60vw);
-      margin-bottom: 1.25rem;
       text-decoration: none;
     }
 
     .app-logo {
+      aspect-ratio: 11 / 20;
       border-radius: var(--radius);
       overflow: hidden;
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .app-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .app-logo-link:hover .app-logo {
@@ -173,6 +187,8 @@
   </style>
 </head>
 <body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
   <nav class="site-nav">
     <a class="nav-brand" href="index.html">
       <img src="cat_only.png" alt="">
@@ -188,17 +204,30 @@
     <a class="back-link" href="index.html">← Back to Baffled Cat</a>
     <section class="page-card">
       <header class="app-hero">
-        <a class="app-logo-link" href="highpersonic3/index.html">
-          <div class="app-logo">
-            <img src="highpersonic3.jpg" alt="Highpersonic 3">
+        <div class="app-hero-media">
+          <div class="app-logo-link">
+            <div class="app-logo">
+              <img src="Highpersonic images/highpersonic.jpg" alt="The original Highpersonic, 1998">
+            </div>
           </div>
-        </a>
+          <a class="app-logo-link" href="highpersonic3/index.html">
+            <div class="app-logo">
+              <img src="highpersonic3.jpg" alt="Highpersonic 3">
+            </div>
+          </a>
+        </div>
         <span class="eyebrow">Live · Web</span>
         <h1>Highpersonic 3</h1>
         <a class="btn btn-primary" href="highpersonic3/index.html">Launch</a>
       </header>
 
-      <p>Highpersonic 3 is an audio visualiser loosely based on the original Highpersonic released in 1998.</p>
+      <h2>The story</h2>
+      <p>I created Highpersonic as an audio visualiser for Winamp back in 1998. It was my first real application using DirectX5, and was a great learning experience at the time.</p>
+      <p>There's a bit of history too with a friend of mine who also wrote a Winamp plugin. We shared a lot of ideas and code, and we both ended up in computer games after university. Tripex3 is still available on GitHub if you take a look.</p>
+      <p>For my own reimagining I've taken some of the original ideas from Highpersonic 1, some incomplete effects that I developed for Highpersonic 2, which was never released, and merged them together into a new application called Highpersonic 3.</p>
+      <p>As a sign of the times, Highpersonic 3 is now a browser-based application, with all of the code built using Cursor, where I'm generally only here for steering purposes! I guess that's the future now.</p>
+      <p>I hope you get some enjoyment out of this version, and if there's anything you'd like adding, drop me a line!</p>
+
       <p>Launch the application and attach an audio source to visualise audio in the browser.</p>
       <p>Highpersonic 3 is free for non-commercial use. If you'd like to use it in a commercial setting, please <button type="button" class="email-me-btn" id="email-me-btn">email me</button>.</p>
     </section>
@@ -208,7 +237,6 @@
     <span>© 2026 Baffled Cat</span>
     <nav>
       <a href="about.html">About</a>
-      <a href="privacy.html">Privacy</a>
     </nav>
   </footer>
 
@@ -344,5 +372,6 @@
       });
     })();
   </script>
+  <script src="bg-lattice.js"></script>
 </body>
 </html>

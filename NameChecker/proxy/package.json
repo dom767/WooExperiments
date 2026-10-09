@@ -1,0 +1,16 @@
+{
+  "name": "domain-availability-proxy",
+  "version": "1.0.0",
+  "description": "Local RDAP proxy for domain availability checks",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "install-and-start": "npm install && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

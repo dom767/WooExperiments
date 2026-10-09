@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bifurcation Diagram | Baffled Cat</title>
+  <meta name="description" content="An interactive viewer for the classic bifurcation diagram of the logistic map — a simple recurrence that produces one of the most recognisable images in chaos theory.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .app-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .app-logo-link {
+      display: block;
+      width: min(560px, 92vw);
+      margin-bottom: 1.25rem;
+      text-decoration: none;
+    }
+
+    .app-logo {
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .app-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .app-logo-link:hover .app-logo {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .app-hero .eyebrow { margin-bottom: 0.75rem; }
+
+    .app-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.9rem, 5vw, 2.4rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 1.1rem;
+    }
+
+    .equation {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      margin: 1.1rem 0 1.25rem;
+      padding: 0.85rem 1rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .bifurcation-figure {
+      display: block;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin: 0.85rem 0 1rem;
+    }
+
+    .bifurcation-figure img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .bifurcation-figure:hover img {
+      transform: scale(1.03);
+    }
+
+    .closing-note {
+      font-style: italic;
+      color: var(--text-muted);
+      margin-top: 1.5rem;
+    }
+
+    .lightbox-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(10, 8, 5, 0.85);
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1rem, 4vw, 3rem);
+    }
+
+    .lightbox-overlay.is-open { display: flex; }
+
+    .lightbox-image {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      border-radius: var(--radius);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: clamp(0.75rem, 3vw, 1.5rem);
+      right: clamp(0.75rem, 3vw, 1.5rem);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      line-height: 1;
+      color: var(--text);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-strong);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .lightbox-close:hover { border-color: var(--accent-amber); color: var(--accent-amber); }
+
+    .lightbox-nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      line-height: 1;
+      color: var(--text);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-strong);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .lightbox-nav:hover { border-color: var(--accent-amber); color: var(--accent-amber); }
+
+    .lightbox-prev { left: clamp(0.75rem, 3vw, 1.5rem); }
+    .lightbox-next { right: clamp(0.75rem, 3vw, 1.5rem); }
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <nav class="site-nav">
+    <a class="nav-brand" href="index.html">
+      <img src="cat_only.png" alt="">
+      Baffled Cat
+    </a>
+    <div class="nav-links">
+      <a href="index.html#projects" class="is-active">Projects</a>
+      <a href="about.html">About</a>
+    </div>
+  </nav>
+
+  <main class="page-shell">
+    <a class="back-link" href="index.html">← Back to Baffled Cat</a>
+    <section class="page-card">
+      <header class="app-hero">
+        <a class="app-logo-link" href="bifurcation/index.html">
+          <div class="app-logo">
+            <img src="BifurcationDiagrams/Overview.jpg" alt="Bifurcation Diagram">
+          </div>
+        </a>
+        <span class="eyebrow">Live · Web</span>
+        <h1>Bifurcation Diagram</h1>
+        <a class="btn btn-primary" href="bifurcation/index.html">Launch</a>
+      </header>
+
+      <h2>The logistic map</h2>
+      <p>An interactive viewer for the classic bifurcation diagram of the logistic map — a simple recurrence that produces one of the most recognisable images in chaos theory.</p>
+      <a href="BifurcationDiagrams/Overview.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/Overview.jpg" alt="Overview of the logistic map bifurcation diagram" loading="lazy">
+      </a>
+      <p>The map itself is almost trivial:</p>
+      <p class="equation">x<sub>n+1</sub> = r · x<sub>n</sub> · (1 − x<sub>n</sub>)</p>
+      <p>For each growth rate <em>r</em> along the horizontal axis, the equation is iterated and the long-term values of <em>x</em> are plotted vertically. As <em>r</em> increases, a single stable population splits again and again — period doubling — until the orbit dissolves into chaos, interrupted by quiet windows of order. Dense bands are chaotic attractors; the gaps are periodic islands.</p>
+      <p>This application builds that picture progressively in the browser: high-precision (fp64) accumulation on the CPU, with WebGPU used only to display the result. You can pan, zoom, retune colour and exposure, and export screenshots at full resolution.</p>
+
+      <h2>Self-similarity</h2>
+      <a href="BifurcationDiagrams/FractalDiagram.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/FractalDiagram.jpg" alt="Self-similar structure inside the bifurcation diagram" loading="lazy">
+      </a>
+      <p>Zoom in and the cascade repeats. Nested period-doubling forks echo the large-scale diagram at every magnification — a fractal structure discovered in the logistic map and related one-dimensional maps. The same branching motif appears inside chaotic bands and around the edges of periodic windows.</p>
+
+      <h2>Sinusoidal structure</h2>
+      <a href="BifurcationDiagrams/Sinwaves.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/Sinwaves.jpg" alt="Sinusoidal patterns at high iteration counts" loading="lazy">
+      </a>
+      <p>At high iteration counts, the density field resolves into fine sinusoidal streaks rather than a solid spray of points. These undulating threads are the visible footprint of almost-periodic motion — orbits that wander slowly across the attractor and paint smooth wave-like paths through parameter space.</p>
+
+      <h2>Waves around a gap</h2>
+      <a href="BifurcationDiagrams/SinwavesAroundGap.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/SinwavesAroundGap.jpg" alt="Sinusoidal patterns intersecting self-similar bifurcation diagrams around a gap" loading="lazy">
+      </a>
+      <p>Near the openings of periodic windows, those waves do not simply fade out. They weave around and through miniature copies of the bifurcation diagram itself — self-similar cascades sitting inside the larger chaos, braided with the sinusoidal filaments that fill the surrounding band.</p>
+
+      <h2>Tight detail</h2>
+      <a href="BifurcationDiagrams/TightDetail.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/TightDetail.jpg" alt="Many coincident sinusoids within the diagram" loading="lazy">
+      </a>
+      <p>Push further and the strands multiply. Dozens of sinusoids of different amplitudes and phases pack into a narrow region of the diagram, each tracing a slightly different frequency of motion on the attractor. The eye reads them as a woven texture; they are the diagram’s fine-scale bookkeeping of chaotic orbits.</p>
+
+      <h2>Convergence</h2>
+      <a href="BifurcationDiagrams/Convergance.jpg" class="lightbox-link bifurcation-figure">
+        <img src="BifurcationDiagrams/Convergance.jpg" alt="Crossing point where sinusoids of different frequencies coincide" loading="lazy">
+      </a>
+      <p>Occasionally the threads agree. At isolated crossings, waves of many frequencies pass through a single point — a coincidence in the density field where disparate orbits briefly share the same (<em>r</em>, <em>x</em>). These convergence loci are striking landmarks when exploring at high zoom and long accumulation.</p>
+
+      <p class="closing-note">Open the live viewer to pan and zoom the diagram yourself, adjust accumulation and colour, and capture stills of any region you find.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 Baffled Cat</span>
+    <nav>
+      <a href="about.html">About</a>
+    </nav>
+  </footer>
+
+  <div class="lightbox-overlay" id="lightbox" aria-hidden="true">
+    <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">✕</button>
+    <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous image">‹</button>
+    <img class="lightbox-image" id="lightbox-image" src="" alt="">
+    <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next image">›</button>
+  </div>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('lightbox');
+      var image = document.getElementById('lightbox-image');
+      var closeBtn = document.getElementById('lightbox-close');
+      var prevBtn = document.getElementById('lightbox-prev');
+      var nextBtn = document.getElementById('lightbox-next');
+      var links = Array.prototype.slice.call(document.querySelectorAll('.lightbox-link'));
+      var currentIndex = 0;
+
+      function showImage(index) {
+        currentIndex = (index + links.length) % links.length;
+        var link = links[currentIndex];
+        var img = link.querySelector('img');
+        image.src = link.getAttribute('href');
+        image.alt = img ? img.alt : '';
+      }
+
+      function openLightbox(index) {
+        showImage(index);
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeLightbox() {
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
+        image.src = '';
+      }
+
+      links.forEach(function (link, index) {
+        link.addEventListener('click', function (event) {
+          event.preventDefault();
+          openLightbox(index);
+        });
+      });
+
+      closeBtn.addEventListener('click', closeLightbox);
+      prevBtn.addEventListener('click', function () { showImage(currentIndex - 1); });
+      nextBtn.addEventListener('click', function () { showImage(currentIndex + 1); });
+
+      overlay.addEventListener('click', function (event) {
+        if (event.target === overlay) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (!overlay.classList.contains('is-open')) return;
+        if (event.key === 'Escape') closeLightbox();
+        if (event.key === 'ArrowLeft') showImage(currentIndex - 1);
+        if (event.key === 'ArrowRight') showImage(currentIndex + 1);
+      });
+    })();
+  </script>
+  <script src="bg-lattice.js"></script>
+</body>
+</html>
