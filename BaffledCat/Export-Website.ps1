@@ -75,7 +75,8 @@ New-Item -ItemType Directory -Path $versionDir | Out-Null
 Write-Host "Exporting site to Export\$nextVersion ..."
 
 # Core site files: every root-level HTML file, plus styles.css, favicon.ico, and the shared background script
-$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js', 'robots.txt', 'sitemap.xml', 'consent.js')
+$coreFiles = @('styles.css', 'favicon.ico', 'bg-lattice.js', 'robots.txt', 'sitemap.xml', 'consent.js',
+    'site.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png')
 $coreFiles += Get-ChildItem -Path $root -Filter '*.html' -File | Select-Object -ExpandProperty Name
 
 foreach ($name in $coreFiles) {
@@ -194,7 +195,7 @@ $syncBase = @('s3', 'sync', $versionDir, "s3://$bucket/", '--region', $region, '
 $assetSync = $syncBase + @(
     '--cache-control', 'public, max-age=31536000, immutable',
     '--exclude', '*.html', '--exclude', '*.css', '--exclude', '*.js',
-    '--exclude', 'robots.txt', '--exclude', 'sitemap.xml'
+    '--exclude', 'robots.txt', '--exclude', 'sitemap.xml', '--exclude', 'site.webmanifest'
 )
 $codeSync = $syncBase + @(
     '--cache-control', 'public, max-age=604800',
@@ -212,6 +213,11 @@ foreach ($syncArgs in @($assetSync, $codeSync, $markupSync)) {
         throw "Upload failed (aws exited with code $($result.ExitCode))."
     }
 }
+
+# Web manifest: set the content type explicitly (sync may not guess it) and keep the cache short.
+$manifestResult = Invoke-Aws -Arguments @('s3', 'cp', (Join-Path $versionDir 'site.webmanifest'), "s3://$bucket/site.webmanifest", '--region', $region, '--no-progress',
+    '--content-type', 'application/manifest+json', '--cache-control', 'public, max-age=300, must-revalidate')
+if ($manifestResult.ExitCode -ne 0) { throw "Manifest upload failed: $($manifestResult.Output)" }
 
 Write-Host ''
 Write-Host "Published Export\$nextVersion to https://baffledcat.com/"
