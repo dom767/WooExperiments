@@ -1,6 +1,6 @@
 /* /consent.js: GA4 + Consent Mode v2 + minimal cookie bar. Load in <head> of every page. */
 (function () {
-  var GA_ID = 'G-XXXXXXXXXX', KEY = 'bc-consent', stored = null;
+  var GA_ID = 'G-SVS1THC5ZL', KEY = 'bc-consent', stored = null;
   window.bcCookieSettings = function () { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); };
   if (GA_ID.indexOf('XXXX') !== -1) return; // no Measurement ID set yet: do nothing (no bar, no GA)
   try { stored = localStorage.getItem(KEY); } catch (e) {}
