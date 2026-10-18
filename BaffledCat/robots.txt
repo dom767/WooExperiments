@@ -1,5 +1,0 @@
-User-agent: *
-Disallow: /portfolio/
-Allow: /
-
-Sitemap: https://baffledcat.com/sitemap.xml
